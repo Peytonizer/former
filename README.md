@@ -77,3 +77,9 @@ form or a real signature.
 ## Licence
 
 MIT. See [LICENSE](LICENSE).
+
+Output PDFs embed Liberation Sans, sourced from `pdfjs-dist`'s own bundled standard fonts and
+licensed under the GPLv2 with Red Hat's font-embedding exception — see
+[`src/assets/fonts/LICENSE_LIBERATION`](src/assets/fonts/LICENSE_LIBERATION). That exception
+explicitly permits embedding the font in a document you create without the document itself
+becoming GPL-covered, which is the only way former ever uses it.

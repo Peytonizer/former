@@ -36,3 +36,12 @@ headings are cut when a meaningful chunk of work lands, not on every commit.
   something while the toolbar kept the create tool's button highlighted, desyncing the visible
   state from the actual one, and the toolbar overflowed unreachably off-screen at ordinary
   widths for want of `flex-wrap`.
+- Build stage 7: `writeFilled.js`, the first writer — text placements with an explicit font
+  size, drawn straight into the page content stream with an embedded subset of Liberation Sans
+  (`fonts.js`). An "Export (filled)" button downloads the result. Corrected a licence assumption
+  in SPEC.md along the way: the Liberation Sans copy actually available without a network fetch
+  (bundled in our own pinned `pdfjs-dist` dependency) is GPLv2 with Red Hat's font-embedding
+  exception, not SIL OFL as assumed — the choice of font stands, only the label was wrong.
+  Verified against SPEC.md's worked example (anchor and rotation) with a mocked `drawText`, and
+  against the exported bytes themselves in a Node probe: real `Tj` text-showing operators on
+  every page, at the right size, with each page's text matrix reflecting its own rotation.

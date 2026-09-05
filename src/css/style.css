@@ -200,6 +200,33 @@ body {
   cursor: default;
 }
 
+.export-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.export-row button {
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  padding: 0.35rem 0.8rem;
+  font-weight: 600;
+}
+
+.export-row button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.export-note {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}
+
 .page-canvas-wrap {
   --surface-sunk: #efe7dd;
 
