@@ -12,10 +12,17 @@
  * a backgrounded tab suspends requestAnimationFrame, and `page.render(...).promise` never
  * settles in a hidden tab — no error, nothing in the console.
  */
+// Must run before the `pdfjs-dist` import below, which calls `Map.prototype.getOrInsertComputed`
+// at the top of its own module graph on some code paths — see mapUpsertPolyfill.js.
+import './mapUpsertPolyfill.js';
 import * as pdfjs from 'pdfjs-dist';
-import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
-pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
+// A constructed worker (via pdfWorkerEntry.js), not a bare `workerSrc` URL, so the worker's own
+// realm gets its own copy of the same polyfill before pdfjs-dist's worker script runs in it —
+// see pdfWorkerEntry.js and mapUpsertPolyfill.js for why.
+pdfjs.GlobalWorkerOptions.workerPort = new Worker(new URL('./pdfWorkerEntry.js', import.meta.url), {
+  type: 'module',
+});
 
 /**
  * Start a pdf.js loading task for `bytes` and wait for the document.

@@ -238,3 +238,13 @@ headings are cut when a meaningful chunk of work lands, not on every commit.
   the confectionery gradient wash behind the masthead, the expressive `Fraunces Variable` wordmark
   treatment (`SOFT`/`WONK` axes, a `clamp()`-sized display weight), and the privacy line as a
   pistachio status pill rather than plain text. All copied straight from lodger's `style.css`.
+- Fixed a real cross-browser bug: opening any PDF in Safari threw `getOrInsertComputed is not a
+  function` and silently stopped, because pdfjs-dist 6.x calls this brand-new Map/WeakMap method
+  (TC39's "Upsert" proposal) directly, with no fallback, and Safari hasn't shipped it yet —
+  confirmed against npm's published history: absent through 5.4.54, present in every release
+  from 5.5.207 on, so there's no supported older version to pin to instead. Polyfilled it
+  (`src/mapUpsertPolyfill.js`) in both JS realms that need it: the main thread (imported before
+  `pdfjs-dist` itself in `render.js`) and the pdf.js worker, which is a separate realm with its
+  own globals — reached via a small wrapper (`src/pdfWorkerEntry.js`) constructed as a real
+  `Worker` and handed to pdf.js through `GlobalWorkerOptions.workerPort`, instead of the bare
+  `workerSrc` URL used before, so the polyfill runs before pdf.js's own worker script does.
