@@ -93,7 +93,15 @@ async function drawSignature(pdfDoc, page, geometry, rect, bytes) {
   const mimeType = sniffImageType(bytes);
   if (!mimeType) return; // corrupt or since-deleted signature bytes; nothing sane to draw
 
-  const image = mimeType === 'image/png' ? await pdfDoc.embedPng(bytes) : await pdfDoc.embedJpg(bytes);
+  // pdf-lib's JpegEmbedder reads the SOI marker with `new DataView(imageData.buffer)` — the
+  // *whole* underlying ArrayBuffer, ignoring byteOffset/byteLength entirely. That's only safe
+  // for a Uint8Array that owns its buffer outright; a view into a larger buffer (which
+  // `fs.readFileSync`/IndexedDB can both legitimately hand back, and did in CI, where this threw
+  // "SOI not found in JPEG" against bytes that are a correct JPEG on disk) gets read from the
+  // wrong offset. `.slice()` copies into a fresh, byte-0-based buffer, working around a real bug
+  // in an unmaintained dependency rather than in our own code — see CLAUDE.md, "Dependencies".
+  const safeBytes = bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength ? bytes : bytes.slice();
+  const image = mimeType === 'image/png' ? await pdfDoc.embedPng(safeBytes) : await pdfDoc.embedJpg(safeBytes);
   const anchor = userFromVisual(geometry, rect.x, rect.y);
   page.drawImage(image, {
     x: anchor.x,

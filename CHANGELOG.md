@@ -186,3 +186,14 @@ headings are cut when a meaningful chunk of work lands, not on every commit.
   hand, for this to take effect — not something a workflow file can do for itself. Ran every step
   locally against the committed lockfile before pushing, since this is the one commit type this
   project has no way to rehearse in CI first: it's what turns CI on.
+- Fixed a real pdf-lib bug that stage 18's own CI run caught immediately: `JpegEmbedder` reads a
+  JPEG's SOI marker with `new DataView(imageData.buffer)` — the whole underlying `ArrayBuffer`,
+  ignoring `byteOffset`/`byteLength` — which only gives the right answer for a `Uint8Array` that
+  owns its buffer outright. A view into a larger buffer (which both `fs.readFileSync` and
+  IndexedDB can legitimately hand back, and did on the Linux CI runner though never locally,
+  since it depends on the platform's own allocator layout) gets read from the wrong offset and
+  throws "SOI not found in JPEG" against bytes that are a perfectly valid JPEG on disk.
+  `writeFilled.js` now copies signature bytes onto a fresh, byte-0-based buffer before handing
+  them to `embedJpg`/`embedPng`, working around the bug in our own code rather than in the
+  unmaintained dependency, with a regression test that reproduces the exact buffer shape rather
+  than depending on any one platform's allocator to trigger it.

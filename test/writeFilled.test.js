@@ -256,6 +256,30 @@ describe('writeFilled — signatures (build stage 12)', () => {
 
     expect(spy).toHaveBeenCalledTimes(1);
   });
+
+  it('accepts a JPEG signature that arrives as a view into a larger buffer', async () => {
+    // Regression test: pdf-lib's JpegEmbedder reads the SOI marker via
+    // `new DataView(imageData.buffer)` — the *whole* underlying ArrayBuffer, ignoring
+    // byteOffset/byteLength. `fs.readFileSync` never triggers this locally (it hands back a
+    // buffer that owns its ArrayBuffer outright), but it did on the Linux CI runner, throwing
+    // "SOI not found in JPEG" against bytes that are demonstrably a correct JPEG on disk. This
+    // reproduces the same buffer shape directly rather than depending on how any particular
+    // platform's allocator happens to lay things out.
+    const raw = fixture('sig.jpg');
+    const padded = new Uint8Array(raw.byteLength + 16);
+    padded.set(raw, 16);
+    const view = padded.subarray(16);
+    expect(view.byteOffset).toBe(16);
+
+    const pdfDoc = await PDFDocument.load(fixture('flat-a4.pdf'));
+    const spy = vi.spyOn(pdfDoc.getPages()[0], 'drawImage');
+    const placement = createPlacement({ page: 0, type: 'signature', rect: { x: 60, y: 40, w: 120, h: 40 } });
+    placement.imageId = 'sig-jpg-offset';
+
+    await writeFilled(pdfDoc, [placement], geometriesOf(pdfDoc), new Map([['sig-jpg-offset', view]]));
+
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('writeFilled — imported fields (build stage 13)', () => {
