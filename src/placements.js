@@ -25,6 +25,7 @@
  *   align: 'left'|'centre'|'right',
  *   multiline: boolean,
  *   options: string[],
+ *   optionValue: string,
  *   imageId: string|null,
  *   asTextInTemplate: boolean,
  * }} Placement
@@ -35,6 +36,12 @@ const PLACEMENT_TYPES = new Set(['text', 'check', 'signature', 'dropdown', 'radi
 /**
  * A new placement at a given page and rectangle. `value` defaults per type: `false` for a
  * tick, `''` for everything else — a fresh checkbox is unticked, not "empty".
+ *
+ * `optionValue` (radio only) is the option this specific widget represents — fixed per widget,
+ * unlike `value`, which for a radio placement is the *group's* current selection and is mirrored
+ * across every placement sharing its name, the same way `name` itself is. Added at build stage
+ * 10, once a real multi-widget radio group made the two genuinely different things; see
+ * SPEC.md, "The placement model".
  *
  * @param {{ id?: string, page: number, type: PlacementType, rect: Placement['rect'] }} args
  * @returns {Placement}
@@ -52,6 +59,7 @@ export function createPlacement({ id, page, type, rect }) {
     align: 'left',
     multiline: false,
     options: [],
+    optionValue: '',
     imageId: null,
     asTextInTemplate: false,
   };
@@ -126,6 +134,23 @@ export function groupByName(placements) {
     else groups.set(p.name, [p]);
   }
   return groups;
+}
+
+/**
+ * Apply the same patch to every placement sharing `name` — the way a field's value or option
+ * list must be kept identical everywhere it appears, since two placements sharing a name are one
+ * field with several widgets (SPEC.md, "The placement model"), not independent copies that
+ * happen to look alike. A no-op when `name` is empty, so an unnamed placement's `value` is never
+ * accidentally applied to every other unnamed placement.
+ *
+ * @param {Placement[]} placements
+ * @param {string} name
+ * @param {Partial<Placement>} patch
+ * @returns {Placement[]}
+ */
+export function updateGroup(placements, name, patch) {
+  if (!name) return placements;
+  return placements.map((p) => (p.name === name ? { ...p, ...patch } : p));
 }
 
 /**

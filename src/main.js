@@ -4,6 +4,7 @@
 import { PDFDocument } from 'pdf-lib';
 
 import { createEditorCanvas } from './editor/canvas.js';
+import { createPropertiesPanel } from './editor/properties.js';
 import { visualSize } from './geometry.js';
 import { loadDocument } from './doc.js';
 import { buildThumbnailRail, openForRendering, renderPageInto, setActiveThumbnail } from './render.js';
@@ -39,6 +40,7 @@ const els = {
   exportFilled: document.querySelector('[data-export-filled]'),
   exportLayered: document.querySelector('[data-export-layered]'),
   exportTemplate: document.querySelector('[data-export-template]'),
+  properties: document.querySelector('[data-properties]'),
   build: document.querySelector('[data-build]'),
 };
 
@@ -58,18 +60,31 @@ let thumbnailButtons = [];
 let pageIndex = 0;
 let zoomIndex = DEFAULT_ZOOM_INDEX;
 
+// Shared by both the canvas and the properties panel, so a change made in either place is
+// reflected in the other: the panel can rename or re-value a placement whose label the canvas
+// draws, and the canvas can move or delete one the panel is currently showing.
+function handlePlacementsChange(next) {
+  placements = next;
+  editor.render();
+}
+
+const properties = createPropertiesPanel({
+  container: els.properties,
+  getPlacements: () => placements,
+  onChange: handlePlacementsChange,
+});
+
 const editor = createEditorCanvas({
   overlay: els.overlay,
   getPlacements: () => placements,
   getPageIndex: () => pageIndex,
   getVisualHeight: () => visualSize(pageGeometries[pageIndex]).height,
   getScale: () => ZOOM_STEPS[zoomIndex],
-  onChange: (next) => {
-    placements = next;
-  },
+  onChange: handlePlacementsChange,
   onSelectionChange: (id) => {
     els.duplicate.disabled = !id;
     els.deletePlacement.disabled = !id;
+    properties.select(id);
   },
 });
 
@@ -100,6 +115,7 @@ async function openFile(file) {
   sourceFileName = file.name;
   pageGeometries = result.pages;
   placements = [];
+  properties.select(null);
   pageIndex = 0;
   zoomIndex = DEFAULT_ZOOM_INDEX;
   els.exportFilled.disabled = false;

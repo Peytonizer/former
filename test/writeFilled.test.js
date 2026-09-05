@@ -71,14 +71,73 @@ describe('writeFilled', () => {
     expect(spy).toHaveBeenCalledWith('', expect.anything());
   });
 
-  it('skips every non-text placement (other types are not implemented until later stages)', async () => {
+  it('skips an unticked check placement, drawing nothing', async () => {
     const pdfDoc = await PDFDocument.load(fixture('flat-a4.pdf'));
-    const spy = vi.spyOn(pdfDoc.getPages()[0], 'drawText');
+    const spy = vi.spyOn(pdfDoc.getPages()[0], 'drawLine');
     const check = createPlacement({ page: 0, type: 'check', rect: { x: 10, y: 10, w: 20, h: 20 } });
 
     await writeFilled(pdfDoc, [check], geometriesOf(pdfDoc));
 
     expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('draws a checkmark for a ticked check placement', async () => {
+    const pdfDoc = await PDFDocument.load(fixture('flat-a4.pdf'));
+    const spy = vi.spyOn(pdfDoc.getPages()[0], 'drawLine');
+    const check = createPlacement({ page: 0, type: 'check', rect: { x: 10, y: 10, w: 20, h: 20 } });
+    check.value = true;
+
+    await writeFilled(pdfDoc, [check], geometriesOf(pdfDoc));
+
+    // Two line segments make the checkmark shape; both stay inside the placement's rect.
+    expect(spy).toHaveBeenCalledTimes(2);
+    for (const call of spy.mock.calls) {
+      const [{ start, end }] = call;
+      for (const point of [start, end]) {
+        expect(point.x).toBeGreaterThanOrEqual(10);
+        expect(point.x).toBeLessThanOrEqual(30);
+        expect(point.y).toBeGreaterThanOrEqual(10);
+        expect(point.y).toBeLessThanOrEqual(30);
+      }
+    }
+  });
+
+  it('draws a dropdown\'s selected value as text', async () => {
+    const pdfDoc = await PDFDocument.load(fixture('flat-a4.pdf'));
+    const spy = vi.spyOn(pdfDoc.getPages()[0], 'drawText');
+    const dropdown = createPlacement({ page: 0, type: 'dropdown', rect: { x: 10, y: 10, w: 100, h: 20 } });
+    dropdown.options = ['NSW', 'VIC'];
+    dropdown.value = 'VIC';
+
+    await writeFilled(pdfDoc, [dropdown], geometriesOf(pdfDoc));
+
+    expect(spy).toHaveBeenCalledWith('VIC', expect.anything());
+  });
+
+  it('marks the selected radio option, and no others, without a cross-placement lookup', async () => {
+    const pdfDoc = await PDFDocument.load(fixture('flat-a4.pdf'));
+    const spy = vi.spyOn(pdfDoc.getPages()[0], 'drawLine');
+
+    const email = createPlacement({ page: 0, type: 'radio', rect: { x: 10, y: 10, w: 20, h: 20 } });
+    email.name = 'contact';
+    email.optionValue = 'email';
+    email.value = 'email'; // the group's shared current selection
+
+    const phone = createPlacement({ page: 0, type: 'radio', rect: { x: 50, y: 10, w: 20, h: 20 } });
+    phone.name = 'contact';
+    phone.optionValue = 'phone';
+    phone.value = 'email';
+
+    await writeFilled(pdfDoc, [email, phone], geometriesOf(pdfDoc));
+
+    expect(spy).toHaveBeenCalledTimes(2); // one checkmark (two lines) for "email" only
+    for (const call of spy.mock.calls) {
+      const [{ start, end }] = call;
+      for (const point of [start, end]) {
+        expect(point.x).toBeGreaterThanOrEqual(10);
+        expect(point.x).toBeLessThanOrEqual(30);
+      }
+    }
   });
 
   it('produces bytes pdf-lib can reload, with the page count unchanged', async () => {

@@ -25,10 +25,17 @@
  *   rotated page tabs sideways. Widgets are added in field-then-placement order as the placement
  *   list is walked, which is not the visual order, so this is a real reorder, not a formality.
  *
- * Text placements only at this stage — ticks, dropdowns and radio groups arrive at build stage
- * 10 for all three writers together. An unnamed placement is skipped, not an error: naming is a
- * required field in these two modes (SPEC.md, "Names, and sharing a value"), but the properties
- * panel that would let a user type one in doesn't exist until stage 10 either.
+ * Text, check, dropdown and radio are all handled (stage 10); signature is not — SPEC.md is
+ * explicit that a signature placement never becomes a signature field, so it is handled entirely
+ * separately, per the `asTextInTemplate` choice, at stage 12. An unnamed placement is skipped,
+ * not an error: naming is required in these two modes (SPEC.md, "Names, and sharing a value"),
+ * but the properties panel that would let a user type one in doesn't fully exist yet either.
+ *
+ * A radio group is one field with several widgets, same as text, but each widget represents a
+ * different **option** rather than a repeat of the same value — `addOptionToPage(optionValue,
+ * page, opts)` instead of `addToPage(page, opts)` — and the group's current selection is set
+ * once, on the field, from whichever placement's `value` happens to be present (they are all the
+ * same string, mirrored across the group like `name`; see `placements.js`).
  */
 import { degrees, PDFBool, PDFName } from 'pdf-lib';
 
@@ -57,6 +64,37 @@ function widgetOptions(placement, geometry) {
     backgroundColor: undefined,
     borderColor: undefined,
   };
+}
+
+/** One field-creating call per placement type. `form.createXField(name)` throws if `name` is
+ * already used by a *different* type — the reason `findNameTypeConflicts` exists in
+ * `placements.js` as a pre-export warning rather than a crash discovered here. */
+const FIELD_CREATORS = {
+  text: (form, name) => form.createTextField(name),
+  check: (form, name) => form.createCheckBox(name),
+  dropdown: (form, name) => form.createDropdown(name),
+  radio: (form, name) => form.createRadioGroup(name),
+};
+
+/** Add one placement's widget to `page`, dispatching on type — radio is the one shape that
+ * doesn't take `addToPage` directly. */
+function addWidget(field, type, page, placement, geometry) {
+  const options = widgetOptions(placement, geometry);
+  if (type === 'radio') field.addOptionToPage(placement.optionValue, page, options);
+  else field.addToPage(page, options);
+}
+
+/** Set a field's value from its group's shared `value` (SPEC.md, "the round-trip question"). */
+function applyValue(field, type, group) {
+  const value = group[0].value;
+  if (type === 'text') {
+    field.setText(value || '');
+  } else if (type === 'check') {
+    if (value) field.check();
+    else field.uncheck();
+  } else if (value) {
+    field.select(value); // dropdown and radio both expose select(value)
+  }
 }
 
 /** The refs currently in a page's `/Annots`, in order, or `[]` if it has none. */
@@ -104,23 +142,26 @@ async function writeFields(pdfDoc, placements, pageGeometries, { setValues }) {
   const form = pdfDoc.getForm();
   const pages = pdfDoc.getPages();
 
-  const named = placements.filter((p) => p.type === 'text' && p.name);
+  const named = placements.filter((p) => p.type !== 'signature' && p.name);
   /** @type {Map<number, {ref: import('pdf-lib').PDFRef, placement: import('./placements.js').Placement}[]>} */
   const widgetsByPage = new Map();
 
   for (const [name, group] of groupByName(named)) {
-    const field = form.createTextField(name);
+    const type = group[0].type;
+    const field = FIELD_CREATORS[type](form, name);
+    if (type === 'dropdown') field.setOptions(group[0].options);
+
     for (const placement of group) {
       const page = pages[placement.page];
       const before = new Set(annotRefs(page));
-      field.addToPage(page, widgetOptions(placement, pageGeometries[placement.page]));
+      addWidget(field, type, page, placement, pageGeometries[placement.page]);
       const ref = annotRefs(page).find((r) => !before.has(r));
 
       if (!widgetsByPage.has(placement.page)) widgetsByPage.set(placement.page, []);
       widgetsByPage.get(placement.page).push({ ref, placement });
-
-      if (setValues) field.setText(placement.value || '');
     }
+
+    if (setValues) applyValue(field, type, group);
   }
 
   sortAnnotsByTabOrder(pdfDoc, pages, widgetsByPage);

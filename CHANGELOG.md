@@ -61,3 +61,17 @@ headings are cut when a meaningful chunk of work lands, not on every commit.
   re-deriving the expected numbers — this guards against the two drifting apart in a future edit,
   which neither writer's own test would catch on its own. They agree, so this stage needed no
   planning-level escalation.
+- Build stage 10: ticks, dropdowns and radio groups, in all three writers, plus the properties
+  panel (`editor/properties.js`) to name a placement, set its value, and edit a dropdown's or
+  radio group's options. Flagged and resolved a real gap in SPEC.md's placement model before
+  writing any code: a radio group's several physical buttons need both "which option is this
+  widget" and "which option is the group's current selection", which the original typedef only
+  had one string for. Resolved by adding `optionValue` (fixed per widget) alongside the existing
+  `value` (the group's shared selection, mirrored across every placement sharing a name, exactly
+  as `name` already is) — see the amended SPEC.md and the new `placements.js` function this
+  mirroring runs through, `updateGroup`. Verified end-to-end in a browser: naming two radio
+  placements the same, giving each a distinct `optionValue`, and toggling "selected by default"
+  on one correctly clears the other's checkbox on next selection. Also fixed a real bug found in
+  the process: editing a placement through the properties panel updated the data but never
+  re-rendered the canvas overlay, so a renamed placement's on-page label never appeared, until
+  main.js was wired to re-render the canvas from both the panel's and the canvas's own changes.

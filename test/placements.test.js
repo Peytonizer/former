@@ -6,6 +6,7 @@ import {
   findNameTypeConflicts,
   groupByName,
   removePlacement,
+  updateGroup,
   updatePlacement,
 } from '../src/placements.js';
 
@@ -23,6 +24,7 @@ describe('createPlacement', () => {
     expect(p.align).toBe('left');
     expect(p.multiline).toBe(false);
     expect(p.options).toEqual([]);
+    expect(p.optionValue).toBe('');
     expect(p.imageId).toBeNull();
     expect(p.asTextInTemplate).toBe(false);
     expect(typeof p.id).toBe('string');
@@ -108,6 +110,30 @@ describe('duplicatePlacement', () => {
   it('is a no-op when the id is not present', () => {
     const a = createPlacement({ id: 'a', page: 0, type: 'text', rect });
     expect(duplicatePlacement([a], 'missing')).toEqual([a]);
+  });
+});
+
+describe('updateGroup', () => {
+  it('applies a patch to every placement sharing a name', () => {
+    const a = updatePlacement([createPlacement({ id: 'a', page: 0, type: 'check', rect })], 'a', {
+      name: 'agree',
+    })[0];
+    const b = updatePlacement([createPlacement({ id: 'b', page: 1, type: 'check', rect })], 'b', {
+      name: 'agree',
+    })[0];
+    const other = createPlacement({ id: 'c', page: 0, type: 'check', rect });
+
+    const result = updateGroup([a, b, other], 'agree', { value: true });
+
+    expect(result.find((p) => p.id === 'a').value).toBe(true);
+    expect(result.find((p) => p.id === 'b').value).toBe(true);
+    expect(result.find((p) => p.id === 'c').value).toBe(false);
+  });
+
+  it('is a no-op for an empty name, so unnamed placements are never touched together', () => {
+    const a = createPlacement({ id: 'a', page: 0, type: 'text', rect });
+    const b = createPlacement({ id: 'b', page: 0, type: 'text', rect });
+    expect(updateGroup([a, b], '', { value: 'x' })).toEqual([a, b]);
   });
 });
 

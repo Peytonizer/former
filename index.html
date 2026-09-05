@@ -73,9 +73,8 @@
               <button type="button" data-export-filled disabled>Export (filled)</button>
               <button type="button" data-export-layered disabled>Export (layered)</button>
               <button type="button" data-export-template disabled>Export (template)</button>
-              <span class="export-note">Text placements only. Naming a placement — required for
-                layered and template — has no UI yet, so an unnamed one is left out of those two;
-                the properties panel lands at a later stage.</span>
+              <span class="export-note">An unnamed placement is left out of layered and
+                template exports — name it in the properties panel first.</span>
             </div>
             <div class="page-canvas-wrap">
               <div class="page-stage" data-page-stage>
@@ -84,6 +83,57 @@
               </div>
             </div>
           </div>
+
+          <aside class="properties" data-properties hidden aria-label="Placement properties">
+            <h2>Properties</h2>
+
+            <label class="field">
+              <span>Name</span>
+              <input type="text" data-prop-name list="existing-names" placeholder="unnamed" />
+            </label>
+            <datalist id="existing-names" data-existing-names></datalist>
+
+            <label class="field" data-prop-row-text>
+              <span>Value</span>
+              <input type="text" data-prop-value-text />
+            </label>
+
+            <label class="field field-checkbox" data-prop-row-check>
+              <input type="checkbox" data-prop-value-check />
+              <span>Ticked</span>
+            </label>
+
+            <div data-prop-row-dropdown>
+              <label class="field">
+                <span>Options <small>(one per line)</small></span>
+                <textarea data-prop-options rows="4"></textarea>
+              </label>
+              <label class="field">
+                <span>Selected</span>
+                <select data-prop-value-select></select>
+              </label>
+            </div>
+
+            <div data-prop-row-radio>
+              <label class="field">
+                <span>This button's option</span>
+                <input type="text" data-prop-option-value />
+              </label>
+              <label class="field field-checkbox">
+                <input type="checkbox" data-prop-radio-selected />
+                <span>Selected by default</span>
+              </label>
+            </div>
+
+            <label class="field" data-prop-row-fontsize>
+              <span>Font size <small>(0 = auto)</small></span>
+              <input type="number" min="0" step="1" data-prop-fontsize />
+            </label>
+
+            <p class="prop-note" data-prop-row-signature hidden>
+              Signature placements aren't editable here yet — that lands at build stage 12.
+            </p>
+          </aside>
         </section>
       </main>
 

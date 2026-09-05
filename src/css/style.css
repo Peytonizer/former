@@ -113,7 +113,7 @@ body {
 
 .viewer {
   display: grid;
-  grid-template-columns: 8rem 1fr;
+  grid-template-columns: 8rem 1fr 16rem;
   gap: 1rem;
 }
 
@@ -352,4 +352,56 @@ body {
   margin-top: 3rem;
   color: var(--ink-soft);
   font-size: 0.8rem;
+}
+
+.properties {
+  border: 1px solid var(--ink-soft);
+  border-radius: 8px;
+  padding: 0.75rem;
+  align-self: start;
+  font-size: 0.85rem;
+}
+
+.properties h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
+.properties .field {
+  display: block;
+  margin-bottom: 0.6rem;
+}
+
+.properties .field span {
+  display: block;
+  margin-bottom: 0.2rem;
+  color: var(--ink-soft);
+}
+
+.properties .field input[type='text'],
+.properties .field input[type='number'],
+.properties .field select,
+.properties .field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.3rem;
+  border: 1px solid var(--ink-soft);
+  border-radius: 4px;
+  font: inherit;
+}
+
+.properties .field-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.properties .field-checkbox span {
+  margin: 0;
+  color: var(--ink);
+}
+
+.prop-note {
+  color: var(--ink-soft);
+  font-style: italic;
 }
