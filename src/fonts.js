@@ -141,19 +141,13 @@ export function wrapLines(font, text, size, maxWidth) {
  * @param {number} maxWidth
  * @param {{ multiline?: boolean, maxHeight?: number }} [options]
  */
-export function autoFitFontSize(font, text, maxWidth, { multiline = false, maxHeight = Infinity } = {}) {
-  const fits = (size) => {
-    if (!multiline) return font.widthOfTextAtSize(text, size) <= maxWidth;
-    const lines = wrapLines(font, text, size, maxWidth);
-    return lines.length * size * LINE_HEIGHT_FACTOR <= maxHeight;
-  };
-
+export function autoFitFontSize(font, text, maxWidth, options = {}) {
   let lo = AUTO_FIT_MIN_PT;
   let hi = AUTO_FIT_MAX_PT;
   let best = AUTO_FIT_MIN_PT; // if even the minimum doesn't fit, draw at the minimum anyway
   while (lo <= hi) {
     const mid = Math.floor((lo + hi) / 2);
-    if (fits(mid)) {
+    if (fitsAtSize(font, text, mid, maxWidth, options)) {
       best = mid;
       lo = mid + 1;
     } else {
@@ -161,4 +155,25 @@ export function autoFitFontSize(font, text, maxWidth, { multiline = false, maxHe
     }
   }
   return best;
+}
+
+/** @param {{ multiline?: boolean, maxHeight?: number }} [options] */
+function fitsAtSize(font, text, size, maxWidth, { multiline = false, maxHeight = Infinity } = {}) {
+  if (!multiline) return font.widthOfTextAtSize(text, size) <= maxWidth;
+  const lines = wrapLines(font, text, size, maxWidth);
+  return lines.length * size * LINE_HEIGHT_FACTOR <= maxHeight;
+}
+
+/**
+ * `true` when even `AUTO_FIT_MIN_PT` doesn't fit — the case `warnings.js`'s "auto-sized text
+ * that will not fit" check (SPEC.md) surfaces, since `autoFitFontSize` itself always returns
+ * *some* size regardless, clamped to the minimum, rather than signalling failure.
+ *
+ * @param {import('pdf-lib').PDFFont} font
+ * @param {string} text
+ * @param {number} maxWidth
+ * @param {{ multiline?: boolean, maxHeight?: number }} [options]
+ */
+export function autoFitOverflows(font, text, maxWidth, options = {}) {
+  return !fitsAtSize(font, text, AUTO_FIT_MIN_PT, maxWidth, options);
 }

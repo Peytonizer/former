@@ -9,7 +9,7 @@ import { createPropertiesPanel } from './editor/properties.js';
 import { visualSize } from './geometry.js';
 import { loadDocument } from './doc.js';
 import { buildThumbnailRail, openForRendering, renderPageInto, setActiveThumbnail } from './render.js';
-import { fullFontByteSize } from './fonts.js';
+import { embedSubsetFont, fullFontByteSize } from './fonts.js';
 import {
   createSignaturePad,
   deleteSignature,
@@ -20,6 +20,7 @@ import {
   sniffImageType,
 } from './signature.js';
 import { compareSidecar, createSidecar, parseSidecar, serialiseSidecar } from './sidecar.js';
+import { collectWarnings } from './warnings.js';
 import { writeFilled } from './writeFilled.js';
 import { writeLayered, writeTemplate } from './writeFields.js';
 
@@ -69,6 +70,10 @@ const els = {
   saveSidecar: document.querySelector('[data-save-sidecar]'),
   loadSidecar: document.querySelector('[data-load-sidecar]'),
   sidecarMessage: document.querySelector('[data-sidecar-message]'),
+  exportWarnings: document.querySelector('[data-export-warnings]'),
+  exportWarningsList: document.querySelector('[data-export-warnings-list]'),
+  proceedExport: document.querySelector('[data-proceed-export]'),
+  cancelExport: document.querySelector('[data-cancel-export]'),
 };
 
 if (els.build) els.build.textContent = import.meta.env.VITE_COMMIT_SHA;
@@ -264,7 +269,7 @@ function downloadBytes(bytes, fileName) {
 /** Every export re-parses a fresh document — see the comment on `sourceBytes` above. The
  * resolved signature map is harmless to pass to writeLayered/writeTemplate too; neither declares
  * a fourth parameter, so they simply ignore it. */
-async function withFreshDocument(writer, suffix) {
+async function runExport(writer, suffix) {
   if (!sourceBytes) return;
   const pdfDoc = await PDFDocument.load(sourceBytes);
   const signatureImages = await resolveSignatureImages();
@@ -272,9 +277,56 @@ async function withFreshDocument(writer, suffix) {
   downloadBytes(bytes, derivedFileName(sourceFileName, suffix));
 }
 
-els.exportFilled.addEventListener('click', () => withFreshDocument(writeFilled, 'filled'));
-els.exportLayered.addEventListener('click', () => withFreshDocument(writeLayered, 'layered'));
-els.exportTemplate.addEventListener('click', () => withFreshDocument(writeTemplate, 'template'));
+/** Holds the export a warning is currently blocking, so "Export anyway" knows what to run. */
+let pendingExport = null;
+
+/**
+ * Check `placements` against `mode` (SPEC.md's warnings table) before writing anything. With
+ * nothing to say, exports immediately — the common case stays frictionless. With something to
+ * say, shows it and waits for an explicit "Export anyway" or "Cancel" instead of running.
+ */
+async function withWarningsChecked(writer, suffix, mode) {
+  if (!sourceBytes) return;
+
+  const signatureMimeTypes = new Map(savedSignatures.map((s) => [s.id, s.mimeType]));
+  // Auto-fit overflow is filled-mode only and needs a font to measure with; a throwaway embed
+  // on an otherwise-empty document is cheap next to actually writing the export.
+  const filledFont = mode === 'filled' ? await embedSubsetFont(await PDFDocument.create()) : undefined;
+
+  const warnings = collectWarnings(placements, pageGeometries, mode, { signatureMimeTypes, filledFont });
+
+  if (warnings.length === 0) {
+    await runExport(writer, suffix);
+    return;
+  }
+
+  pendingExport = { writer, suffix };
+  els.exportWarningsList.replaceChildren(
+    ...warnings.map((w) => {
+      const li = document.createElement('li');
+      li.textContent = w.message;
+      return li;
+    }),
+  );
+  els.exportWarnings.hidden = false;
+}
+
+els.exportFilled.addEventListener('click', () => withWarningsChecked(writeFilled, 'filled', 'filled'));
+els.exportLayered.addEventListener('click', () => withWarningsChecked(writeLayered, 'layered', 'layered'));
+els.exportTemplate.addEventListener('click', () => withWarningsChecked(writeTemplate, 'template', 'template'));
+
+els.proceedExport.addEventListener('click', async () => {
+  if (!pendingExport) return;
+  const { writer, suffix } = pendingExport;
+  pendingExport = null;
+  els.exportWarnings.hidden = true;
+  await runExport(writer, suffix);
+});
+
+els.cancelExport.addEventListener('click', () => {
+  pendingExport = null;
+  els.exportWarnings.hidden = true;
+});
 
 // --- Signatures ------------------------------------------------------------------------------
 // Independent of any loaded document — signatures are saved once and reused across sessions

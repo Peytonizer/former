@@ -125,3 +125,16 @@ headings are cut when a meaningful chunk of work lands, not on every commit.
   since the download itself is inert in this sandbox) and loading it back: an unchanged document
   attaches silently and restores the placement exactly, and a different-page-count document is
   correctly refused.
+- Build stage 15: warnings.js — the pre-export checks from SPEC.md's warnings table that depend
+  on the placement list (the refusals and the font-size note were already handled where the thing
+  they're about happens, in doc.js/signature.js/sidecar.js/fonts.js). Covers a name shared by
+  different types, a placement extending past the page edge, an unnamed placement that layered or
+  template would silently drop, what a signature placement becomes in template mode, a JPEG
+  signature's transparency warning, and filled mode's auto-fit text that doesn't fit even at the
+  smallest size — the last two skip cleanly with no font supplied rather than throwing, since
+  `warnings.js` itself stays DOM- and pdf-lib-instance-free otherwise. Wired into the export
+  buttons as a real gate: no warnings exports immediately as before, any warnings show first with
+  "Export anyway"/"Cancel", reusing the same show-a-prompt-and-wait pattern stage 13's import
+  prompt already established. Verified end-to-end in a browser: an unnamed placement blocks
+  layered export with the right message, naming it then re-exporting proceeds with no warnings,
+  and "Export anyway" on a template export with an unnamed placement completes cleanly.

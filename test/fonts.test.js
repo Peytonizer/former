@@ -5,7 +5,15 @@ import { fileURLToPath } from 'node:url';
 import { PDFDocument } from 'pdf-lib';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { AUTO_FIT_MAX_PT, AUTO_FIT_MIN_PT, autoFitFontSize, embedFullFont, embedSubsetFont, wrapLines } from '../src/fonts.js';
+import {
+  AUTO_FIT_MAX_PT,
+  AUTO_FIT_MIN_PT,
+  autoFitFontSize,
+  autoFitOverflows,
+  embedFullFont,
+  embedSubsetFont,
+  wrapLines,
+} from '../src/fonts.js';
 
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 
@@ -73,5 +81,15 @@ describe('autoFitFontSize', () => {
     const unconstrained = autoFitFontSize(font, text, 80, { multiline: true, maxHeight: 1000 });
     const constrained = autoFitFontSize(font, text, 80, { multiline: true, maxHeight: 20 });
     expect(constrained).toBeLessThanOrEqual(unconstrained);
+  });
+});
+
+describe('autoFitOverflows', () => {
+  it('is false when the text fits comfortably', () => {
+    expect(autoFitOverflows(font, 'Hi', 200)).toBe(false);
+  });
+
+  it('is true when even the minimum size does not fit', () => {
+    expect(autoFitOverflows(font, 'x'.repeat(500), 10)).toBe(true);
   });
 });
