@@ -74,6 +74,14 @@ const els = {
   exportWarningsList: document.querySelector('[data-export-warnings-list]'),
   proceedExport: document.querySelector('[data-proceed-export]'),
   cancelExport: document.querySelector('[data-cancel-export]'),
+  previewFilled: document.querySelector('[data-preview-filled]'),
+  previewLayered: document.querySelector('[data-preview-layered]'),
+  previewTemplate: document.querySelector('[data-preview-template]'),
+  previewBar: document.querySelector('[data-preview-bar]'),
+  previewLabel: document.querySelector('[data-preview-label]'),
+  previewPrev: document.querySelector('[data-preview-prev]'),
+  previewNext: document.querySelector('[data-preview-next]'),
+  closePreview: document.querySelector('[data-close-preview]'),
 };
 
 if (els.build) els.build.textContent = import.meta.env.VITE_COMMIT_SHA;
@@ -101,6 +109,9 @@ let pageIndex = 0;
 let zoomIndex = DEFAULT_ZOOM_INDEX;
 /** The pdf-lib document doc.js already parsed, held only while the import prompt is showing. */
 let pendingImportDoc = null;
+/** @type {{ task: import('pdfjs-dist').PDFDocumentLoadingTask, pdfJsDoc: object } | null} */
+let previewTask = null;
+let previewPageIndex = 0;
 
 // Shared by both the canvas and the properties panel, so a change made in either place is
 // reflected in the other: the panel can rename or re-value a placement whose label the canvas
@@ -132,6 +143,7 @@ const editor = createEditorCanvas({
     els.deletePlacement.disabled = !id;
     properties.select(id);
   },
+  onActivate: () => properties.focus(),
 });
 
 function setMessage(text) {
@@ -153,10 +165,14 @@ async function openFile(file) {
     els.exportLayered.disabled = true;
     els.exportTemplate.disabled = true;
     els.saveSidecar.disabled = true;
+    els.previewFilled.disabled = true;
+    els.previewLayered.disabled = true;
+    els.previewTemplate.disabled = true;
     return;
   }
 
   if (current) await current.task.destroy();
+  await closePreview();
   current = await openForRendering(bytes);
   sourceBytes = bytes;
   sourceFileName = file.name;
@@ -169,6 +185,9 @@ async function openFile(file) {
   els.exportLayered.disabled = false;
   els.exportTemplate.disabled = false;
   els.saveSidecar.disabled = false;
+  els.previewFilled.disabled = false;
+  els.previewLayered.disabled = false;
+  els.previewTemplate.disabled = false;
   els.sidecarMessage.textContent = '';
 
   // Detected via the same pdf-lib document doc.js already loaded to read page geometry — a
@@ -226,6 +245,9 @@ for (const button of els.tools) {
       other.classList.toggle('active', other === button);
       other.setAttribute('aria-pressed', String(other === button));
     }
+    // A keyboard user who just picked a create tool needs somewhere to press Enter — the
+    // overlay isn't a normal Tab stop (see editor/canvas.js), so this is how it's reached.
+    if (button.dataset.tool !== 'select') editor.focusOverlay();
   });
 }
 
@@ -327,6 +349,52 @@ els.cancelExport.addEventListener('click', () => {
   pendingExport = null;
   els.exportWarnings.hidden = true;
 });
+
+// --- Preview the output ------------------------------------------------------------------------
+// SPEC.md, "Preview and the editor surface": renders the exported bytes back through pdf.js, so
+// a geometry regression is caught before a user finds it. It never computes a placement of its
+// own — the whole point is to trust the same bytes an export would actually produce, not a
+// second calculation that could quietly drift from the first.
+
+async function renderPreviewPage(index) {
+  if (!previewTask) return;
+  previewPageIndex = Math.max(0, Math.min(previewTask.pdfJsDoc.numPages - 1, index));
+  await renderPageInto(previewTask.pdfJsDoc, previewPageIndex, els.canvas, { scale: ZOOM_STEPS[zoomIndex] });
+  els.previewLabel.textContent = `page ${previewPageIndex + 1} of ${previewTask.pdfJsDoc.numPages}`;
+}
+
+/** Back to the live editor: closes the preview task and redraws the actual current page. */
+async function closePreview() {
+  if (!previewTask) return;
+  await previewTask.task.destroy();
+  previewTask = null;
+  els.overlay.hidden = false;
+  els.previewBar.hidden = true;
+  if (current) await showPage(pageIndex);
+}
+
+async function showPreview(writer, label) {
+  if (!sourceBytes) return;
+  const pdfDoc = await PDFDocument.load(sourceBytes);
+  const signatureImages = await resolveSignatureImages();
+  const bytes = await writer(pdfDoc, placements, pageGeometries, signatureImages);
+
+  if (previewTask) await previewTask.task.destroy();
+  previewTask = await openForRendering(bytes);
+  previewPageIndex = 0;
+
+  els.overlay.hidden = true; // the placement layer describes the editor's page, not the preview's
+  els.previewBar.hidden = false;
+  els.previewLabel.textContent = `${label} — page 1 of ${previewTask.pdfJsDoc.numPages}`;
+  await renderPreviewPage(0);
+}
+
+els.previewFilled.addEventListener('click', () => showPreview(writeFilled, 'filled export'));
+els.previewLayered.addEventListener('click', () => showPreview(writeLayered, 'layered export'));
+els.previewTemplate.addEventListener('click', () => showPreview(writeTemplate, 'template export'));
+els.previewPrev.addEventListener('click', () => renderPreviewPage(previewPageIndex - 1));
+els.previewNext.addEventListener('click', () => renderPreviewPage(previewPageIndex + 1));
+els.closePreview.addEventListener('click', () => closePreview());
 
 // --- Signatures ------------------------------------------------------------------------------
 // Independent of any loaded document — signatures are saved once and reused across sessions

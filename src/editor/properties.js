@@ -167,5 +167,11 @@ export function createPropertiesPanel({ container, getPlacements, getSignatures,
       render();
     },
     render,
+    /** Moves keyboard focus into the panel — SPEC.md: "Enter opens the properties panel". Named
+     * `focus`, not `focusName`, so a future field reordering doesn't imply a promise about which
+     * control specifically receives it. */
+    focus() {
+      if (!container.hidden) els.name.focus({ preventScroll: true });
+    },
   };
 }

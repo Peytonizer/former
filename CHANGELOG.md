@@ -138,3 +138,23 @@ headings are cut when a meaningful chunk of work lands, not on every commit.
   prompt already established. Verified end-to-end in a browser: an unnamed placement blocks
   layered export with the right message, naming it then re-exporting proceeds with no warnings,
   and "Export anyway" on a template export with an unnamed placement completes cleanly.
+- Build stage 16: keyboard access for the editor surface, and a preview mode. Every placement is
+  a real tab stop in the same order `writeFields.js` gives the exported `/Annots` — descending
+  visual y, then ascending visual x — so tabbing through the page previews the eventual field
+  order. Arrow keys nudge the selected placement by a point (10 with Shift), Delete/Backspace
+  removes it, and Enter either opens the properties panel on a selected placement or, with a
+  creation tool active and nothing selected, creates one at a default position without ever
+  touching the mouse. A "Preview the output" row renders the filled/layered/template bytes straight
+  back through pdf.js in place of the editor, so what SPEC.md promises the export contains can be
+  checked without leaving the tab. Fixed a real bug found while verifying by keyboard: the drag
+  handler's `event.preventDefault()`, needed to stop a click starting a text selection, was also
+  suppressing the browser's own native click-to-focus, so clicking a placement selected it without
+  ever giving it real DOM focus — arrow keys and Delete then silently did nothing until the user
+  tabbed away and back. Fixed by focusing the clicked placement explicitly, looked up fresh in the
+  live DOM by id after selection's own re-render rather than off the original event target, which a
+  first attempt at the fix still got wrong. Verified the full keyboard path — focus, nudge,
+  Delete, both Enter behaviours, tab order, and preview open/close — by dispatching real
+  `KeyboardEvent`s at genuinely focused elements; this sandbox's synthetic mouse clicks turned out
+  to land at the wrong page coordinate for anything below the fold once the stage 10-15 panels
+  pushed the canvas down the page, which is a test-environment limitation and not a finding about
+  the app.

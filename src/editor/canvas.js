@@ -2,9 +2,8 @@
  * editor/canvas.js — the drag/resize/select surface over the rendered page.
  *
  * Placements are DOM elements absolutely positioned over the pdf.js canvas, not drawn into it
- * (SPEC.md, "Preview and the editor surface") — this is what gives selection and focus for free,
- * and it means moving a placement never re-renders the page. Mouse only at this stage; keyboard
- * access (Tab order, nudging, a placement created without a mouse) is stage 16.
+ * (SPEC.md, "Preview and the editor surface") — this is what gives selection, focus and keyboard
+ * access for free, and it means moving a placement never re-renders the page.
  *
  * Two coordinate spaces meet here and must not be conflated. `geometry.js`'s visual<->user
  * transform is about page rotation and is used by the writers; it is untouched by this module.
@@ -12,11 +11,26 @@
  * CSS grows down the page and visual space grows up — and only exists to place a DOM element
  * over a canvas pixel. pdf.js has already accounted for /Rotate by the time a page is on screen,
  * so nothing here reasons about rotation at all.
+ *
+ * Keyboard access (build stage 16), per SPEC.md: Tab moves between placements in **tab order** —
+ * the same descending-visual-y-then-ascending-visual-x rule `writeFields.js` sorts `/Annots` by,
+ * so the order a keyboard user meets fields in matches the order they'll actually tab through in
+ * the exported PDF. That means placements must render in that order, not creation order — native
+ * Tab follows DOM order for equal `tabindex`. Arrow keys nudge the focused placement by 1pt (10pt
+ * with Shift); Delete removes it; Enter hands focus to the properties panel via `onActivate`.
+ * `render()` rebuilds every placement element from scratch on each change, which would normally
+ * steal focus out from under a keyboard user mid-Tab — it re-finds and refocuses the same
+ * placement by id afterward specifically to prevent that.
  */
 import { createPlacement, duplicatePlacement, removePlacement, updatePlacement } from '../placements.js';
 
 /** A placement can never be resized smaller than this, in points, in either dimension. */
 const MIN_SIZE_PT = 8;
+/** Arrow-key nudge, in points; 10x that with Shift. */
+const NUDGE_PT = 1;
+const NUDGE_PT_SHIFT = 10;
+/** A new placement made without a mouse (Enter on the empty overlay) gets this rect. */
+const DEFAULT_CREATE_RECT = { x: 40, w: 120, h: 24 };
 
 const HANDLE_CORNERS = ['nw', 'ne', 'sw', 'se'];
 
@@ -35,6 +49,18 @@ export function visualFromCss(px, py, visualHeight, scale) {
   return { x: px / scale, y: visualHeight - py / scale };
 }
 
+/** Descending visual y (top of the page first), then ascending visual x — the same rule
+ * `writeFields.js` sorts a page's `/Annots` by, so Tab order here matches Tab order there. */
+function byTabOrder(a, b) {
+  return b.rect.y - a.rect.y || a.rect.x - b.rect.x;
+}
+
+/** A short screen-reader label for a placement: its type, and its name if it has one. */
+function accessibleLabel(placement) {
+  const named = placement.name ? `, named "${placement.name}"` : ', unnamed';
+  return `${placement.type} placement${named}`;
+}
+
 /**
  * @param {{
  *   overlay: HTMLElement,
@@ -44,6 +70,7 @@ export function visualFromCss(px, py, visualHeight, scale) {
  *   getScale: () => number,
  *   onChange: (next: import('../placements.js').Placement[]) => void,
  *   onSelectionChange?: (id: string|null) => void,
+ *   onActivate?: (id: string) => void,
  * }} args
  */
 export function createEditorCanvas({
@@ -54,6 +81,7 @@ export function createEditorCanvas({
   getScale,
   onChange,
   onSelectionChange,
+  onActivate,
 }) {
   let tool = 'select';
   let selectedId = null;
@@ -62,8 +90,12 @@ export function createEditorCanvas({
    *       | { kind: 'resize', id: string, corner: string, startRect: object, startPx: {x:number,y:number} }} */
   let drag = null;
 
+  overlay.tabIndex = -1; // focusable via script (see focusOverlay), not a normal Tab stop itself
+
   function placementsOnPage() {
-    return getPlacements().filter((p) => p.page === getPageIndex());
+    return getPlacements()
+      .filter((p) => p.page === getPageIndex())
+      .toSorted(byTabOrder);
   }
 
   function pointFromEvent(event) {
@@ -77,6 +109,11 @@ export function createEditorCanvas({
   }
 
   function render() {
+    // A rebuild replaces every element, including whichever one is currently focused — refocus
+    // it afterward by id so a keyboard user mid-Tab, or one who just nudged with an arrow key,
+    // isn't silently dropped back to the document body.
+    const focusedId = overlay.contains(document.activeElement) ? document.activeElement.dataset.id : null;
+
     const visualHeight = getVisualHeight();
     const scale = getScale();
     const fragment = document.createDocumentFragment();
@@ -85,6 +122,9 @@ export function createEditorCanvas({
       const el = document.createElement('div');
       el.className = `placement placement-${p.type}${p.id === selectedId ? ' selected' : ''}`;
       el.dataset.id = p.id;
+      el.tabIndex = 0;
+      el.setAttribute('role', 'group');
+      el.setAttribute('aria-label', accessibleLabel(p));
       const { left, top, width, height } = cssFromVisual(p.rect, visualHeight, scale);
       Object.assign(el.style, { left: `${left}px`, top: `${top}px`, width: `${width}px`, height: `${height}px` });
 
@@ -106,22 +146,94 @@ export function createEditorCanvas({
       }
 
       el.addEventListener('pointerdown', (event) => startMoveOrSelect(event, p));
+      el.addEventListener('focus', () => select(p.id));
       fragment.append(el);
     }
 
     overlay.replaceChildren(fragment);
+
+    if (focusedId) {
+      overlay.querySelector(`[data-id="${CSS.escape(focusedId)}"]`)?.focus({ preventScroll: true });
+    }
   }
 
   function select(id) {
+    // Not just an optimisation: render()'s post-rebuild refocus fires this same placement's
+    // 'focus' listener again, and without this guard that would recurse into render() forever.
+    if (id === selectedId) return;
     selectedId = id;
     onSelectionChange?.(id);
     render();
+  }
+
+  function deleteSelectedInternal() {
+    if (!selectedId) return;
+    commit(removePlacement(getPlacements(), selectedId));
+    selectedId = null;
+    onSelectionChange?.(null);
+    render();
+  }
+
+  function nudgeSelected(dx, dy) {
+    const placement = getPlacements().find((p) => p.id === selectedId);
+    if (!placement) return;
+    onChange(updatePlacement(getPlacements(), selectedId, { rect: { x: placement.rect.x + dx, y: placement.rect.y + dy } }));
+    render();
+  }
+
+  /** Enter on the empty overlay itself, with a create tool active — SPEC.md's "a placement can
+   * be created at the current position without a mouse". There is no cursor position to use
+   * without a mouse, so this is a fixed, reasonable default rect instead. */
+  function createAtDefaultPosition() {
+    const visualHeight = getVisualHeight();
+    const rect = { ...DEFAULT_CREATE_RECT, y: Math.max(DEFAULT_CREATE_RECT.w, visualHeight - 80) };
+    const placement = createPlacement({ page: getPageIndex(), type: tool, rect });
+    commit([...getPlacements(), placement]);
+    select(placement.id);
+  }
+
+  function onKeyDown(event) {
+    const onPlacement = event.target.closest?.('.placement');
+
+    if (onPlacement && selectedId) {
+      const step = event.shiftKey ? NUDGE_PT_SHIFT : NUDGE_PT;
+      const moves = { ArrowUp: [0, step], ArrowDown: [0, -step], ArrowLeft: [-step, 0], ArrowRight: [step, 0] };
+      if (moves[event.key]) {
+        event.preventDefault();
+        nudgeSelected(...moves[event.key]);
+        return;
+      }
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        event.preventDefault();
+        deleteSelectedInternal();
+        return;
+      }
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        onActivate?.(selectedId);
+        return;
+      }
+    }
+
+    if (event.target === overlay && tool !== 'select' && event.key === 'Enter') {
+      event.preventDefault();
+      createAtDefaultPosition();
+    }
   }
 
   function startMoveOrSelect(event, placement) {
     if (event.target.closest('.handle')) return; // the handle's own listener drives a resize
     event.stopPropagation();
     select(placement.id);
+    // Focus explicitly, by id, after select()'s render() has already run: preventDefault below
+    // (needed so the drag doesn't also try to select page text) suppresses the browser's own
+    // click-to-focus, and by the time it would fire the original element may already have been
+    // replaced by render() anyway — event.currentTarget would be stale. A fresh query for
+    // whatever the current live element with this id is works whether or not render() actually
+    // rebuilt anything this time. Without this, arrow-key nudge and Delete right after a mouse
+    // click would silently do nothing, since keydown only reaches a placement's own listener
+    // when it holds real focus.
+    overlay.querySelector(`[data-id="${CSS.escape(placement.id)}"]`)?.focus({ preventScroll: true });
     if (tool !== 'select') return; // a create tool ignores clicks on existing placements
     event.preventDefault();
     overlay.setPointerCapture(event.pointerId);
@@ -241,22 +353,22 @@ export function createEditorCanvas({
   overlay.addEventListener('pointerdown', startCreate);
   overlay.addEventListener('pointermove', onPointerMove);
   overlay.addEventListener('pointerup', onPointerUp);
+  overlay.addEventListener('keydown', onKeyDown);
 
   return {
     render,
+    /** Programmatic focus for a keyboard user who just picked a create tool from the toolbar —
+     * not a normal Tab stop itself (see the `tabIndex = -1` above), so this is how it's reached. */
+    focusOverlay() {
+      overlay.focus({ preventScroll: true });
+    },
     setTool(next) {
       tool = next;
       if (tool !== 'select') select(null);
     },
     getTool: () => tool,
     getSelectedId: () => selectedId,
-    deleteSelected() {
-      if (!selectedId) return;
-      commit(removePlacement(getPlacements(), selectedId));
-      selectedId = null;
-      onSelectionChange?.(null);
-      render();
-    },
+    deleteSelected: deleteSelectedInternal,
     duplicateSelected() {
       if (!selectedId) return;
       const next = duplicatePlacement(getPlacements(), selectedId);

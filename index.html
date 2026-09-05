@@ -124,6 +124,21 @@
               </span>
             </div>
             <p class="messages" data-sidecar-message role="status" aria-live="polite"></p>
+            <div class="preview-row">
+              <span class="preview-label">Preview the output:</span>
+              <button type="button" data-preview-filled disabled>Filled</button>
+              <button type="button" data-preview-layered disabled>Layered</button>
+              <button type="button" data-preview-template disabled>Template</button>
+              <span class="export-note">Renders the exported bytes back through pdf.js, so you
+                can confirm they show what the editor shows.</span>
+            </div>
+            <div class="preview-bar" data-preview-bar hidden role="status">
+              <strong>Previewing</strong>
+              <span data-preview-label></span>
+              <button type="button" data-preview-prev aria-label="Previous preview page">‹</button>
+              <button type="button" data-preview-next aria-label="Next preview page">›</button>
+              <button type="button" data-close-preview>Close preview</button>
+            </div>
             <div class="page-canvas-wrap">
               <div class="page-stage" data-page-stage>
                 <canvas data-page-canvas></canvas>
