@@ -150,9 +150,19 @@ body {
 }
 
 .shell {
-  max-width: 44rem;
+  /* Wide enough that the viewer grid below — thumbnails, the page itself, properties — gets a
+   * real working width once a PDF is open. The masthead, signature panel and file picker stay
+   * readable-width by re-narrowing themselves (see `.narrow` below); this outer cap only exists
+   * so the page doesn't stretch edge-to-edge on very wide monitors. */
+  max-width: 78rem;
   margin: 0 auto;
   padding: 2.5rem 1.5rem 3rem;
+}
+
+.narrow {
+  max-width: 44rem;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .masthead {
@@ -594,49 +604,6 @@ body {
 
 .export-note [data-export-size-note] {
   font-family: var(--font-mono);
-}
-
-.sidecar-row {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  margin-bottom: 0.25rem;
-  flex-wrap: wrap;
-}
-
-.sidecar-row button {
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-control);
-  background: var(--surface);
-  color: var(--ink);
-  cursor: pointer;
-  padding: 0.3rem 0.6rem;
-}
-
-.sidecar-row button:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.sidecar-load {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-control);
-  padding: 0.3rem 0.6rem;
-  cursor: pointer;
-  font-size: 0.9rem;
-}
-
-.sidecar-load input {
-  max-width: 10rem;
-}
-
-.sidecar-note {
-  flex-basis: 100%;
-  color: var(--ink-soft);
-  font-size: 0.8rem;
 }
 
 .preview-row {

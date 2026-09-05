@@ -26,10 +26,6 @@ Place your text, ticks and signature once, then export whichever way you need:
 | **Layered** | Real form fields carrying their values, so whoever receives it can edit them. |
 | **Template** | The same fields, empty, with the tab order sorted. A blank form that anyone can fill in. |
 
-There's also a small **JSON sidecar** — your placements plus a fingerprint of the source PDF —
-that you can save and load back later. It's for the form you fill in every month: load the
-sidecar against the same document and everything is where you left it.
-
 ## Privacy
 
 Your document never leaves your browser.

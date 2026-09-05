@@ -50,7 +50,7 @@ describe('createPlacement', () => {
     expect(a.id).not.toBe(b.id);
   });
 
-  it('accepts an explicit id, for reconstructing placements from a sidecar', () => {
+  it('accepts an explicit id, for reconstructing a placement from an imported AcroForm widget', () => {
     const p = createPlacement({ id: 'fixed-id', page: 0, type: 'text', rect });
     expect(p.id).toBe('fixed-id');
   });

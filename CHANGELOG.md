@@ -213,3 +213,14 @@ headings are cut when a meaningful chunk of work lands, not on every commit.
   visits — former's whole privacy claim is that nothing is persisted except a signature the user
   explicitly saves, and a toggle setting isn't worth qualifying that for — so the page follows
   the system preference again on every reload until switched for that visit.
+- The JSON sidecar removed entirely — `sidecar.js`, its tests, the "Save/Load sidecar" row, and
+  every mention in the UI and README. It added a second way to bring placements into a session
+  (import from a sidecar, alongside importing a PDF's own existing AcroForm fields) for a
+  narrow use case, and Matt asked for it to go.
+- Layout: the shell was capped at a 44rem reading measure everywhere, including the PDF viewer
+  itself, so a loaded page rendered in a cramped column regardless of screen size. The masthead,
+  signature panel and file picker keep that measure (`.narrow`), but the shell itself now runs
+  up to 78rem, so the thumbnail rail, page and properties panel actually get room. The toolbar
+  row for picking a placement type (Text/Tick/Signature/Dropdown/Radio) now sits directly above
+  the page canvas, with the export/preview controls moved below it, so the tool you're choosing
+  and the page you're dragging on are no longer separated by several rows of buttons.

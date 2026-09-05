@@ -2,12 +2,11 @@
  * warnings.js — the pre-export checks (SPEC.md's warnings table).
  *
  * The refusals in that table (encrypted, corrupt or zero-page PDF; an unrecognised signature
- * image; a sidecar whose page count doesn't match) and the one export-dialog note (the full-font
- * embed's size estimate) are handled where the thing they're about already happens — doc.js,
- * signature.js and sidecar.js's load paths, and fonts.js's `fullFontByteSize` — because none of
- * them depend on the placement list. Everything here does: it looks at the current placements
- * and the mode about to be exported, and returns what a user should see *before* the file is
- * written, not after.
+ * image) and the one export-dialog note (the full-font embed's size estimate) are handled where
+ * the thing they're about already happens — doc.js and signature.js's load paths, and fonts.js's
+ * `fullFontByteSize` — because none of them depend on the placement list. Everything here does:
+ * it looks at the current placements and the mode about to be exported, and returns what a user
+ * should see *before* the file is written, not after.
  *
  * `collectWarnings` is pure enough to unit test without a DOM — the one thing it can't do
  * without help is measure text, so a filled-mode auto-fit check is skipped unless the caller

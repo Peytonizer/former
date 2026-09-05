@@ -2,7 +2,7 @@
  * placements.js — the placement list.
  *
  * `Placement[]` is the entire document state the user is editing (see SPEC.md, "The placement
- * model"); everything else — the three writers, the preview overlay, the sidecar, the warnings
+ * model"); everything else — the three writers, the preview overlay, the warnings
  * — is a function of it. This module owns creating, mutating and deleting placements, grouping
  * them by field name, and the one piece of validation that would otherwise fail at write time
  * rather than being caught up front.
