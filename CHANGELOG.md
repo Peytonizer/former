@@ -110,3 +110,18 @@ headings are cut when a meaningful chunk of work lands, not on every commit.
   know and a rename must not silently change. Verified end-to-end in a browser: the prompt
   correctly counts a document's fields, both import and skip leave the right placements behind,
   and an imported document exports cleanly through the flatten path.
+- Build stage 14: sidecar.js — save and load the JSON sidecar (the placement list plus a SHA-256
+  fingerprint of the source PDF, small enough to email), with the three load outcomes SPEC.md
+  describes: a hash match attaches silently, a hash mismatch with the same page count and first
+  page size attaches with a warning to check every placement, and anything else is refused,
+  naming the page count it was saved against. A same-page-count-but-different-first-page-size
+  document — a case SPEC.md's prose doesn't spell out — is treated as a refusal too, on the
+  reasoning that placement coordinates are absolute in points and that shape change is exactly
+  what would misplace them. A loaded sidecar's signature placements are checked against this
+  browser's current saved signatures and named in the message if any need reselecting — no new
+  placement field for this, since `imageId` pointing at nothing already shows correctly as
+  unselected in the properties panel's picker. Verified end-to-end in a browser by intercepting
+  the app's own real "Save sidecar" download (capturing the `Blob` at `URL.createObjectURL`,
+  since the download itself is inert in this sandbox) and loading it back: an unchanged document
+  attaches silently and restores the placement exactly, and a different-page-count document is
+  correctly refused.

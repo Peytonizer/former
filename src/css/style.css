@@ -366,6 +366,49 @@ body {
   font-size: 0.8rem;
 }
 
+.sidecar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.sidecar-row button {
+  border: 1px solid var(--ink-soft);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  padding: 0.3rem 0.6rem;
+}
+
+.sidecar-row button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.sidecar-load {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--ink-soft);
+  border-radius: 6px;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.sidecar-load input {
+  max-width: 10rem;
+}
+
+.sidecar-note {
+  flex-basis: 100%;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}
+
 .page-canvas-wrap {
   --surface-sunk: #efe7dd;
 

@@ -19,6 +19,7 @@ import {
   saveSignature,
   sniffImageType,
 } from './signature.js';
+import { compareSidecar, createSidecar, parseSidecar, serialiseSidecar } from './sidecar.js';
 import { writeFilled } from './writeFilled.js';
 import { writeLayered, writeTemplate } from './writeFields.js';
 
@@ -65,6 +66,9 @@ const els = {
   importPromptText: document.querySelector('[data-import-prompt-text]'),
   importFields: document.querySelector('[data-import-fields]'),
   skipImport: document.querySelector('[data-skip-import]'),
+  saveSidecar: document.querySelector('[data-save-sidecar]'),
+  loadSidecar: document.querySelector('[data-load-sidecar]'),
+  sidecarMessage: document.querySelector('[data-sidecar-message]'),
 };
 
 if (els.build) els.build.textContent = import.meta.env.VITE_COMMIT_SHA;
@@ -143,6 +147,7 @@ async function openFile(file) {
     els.exportFilled.disabled = true;
     els.exportLayered.disabled = true;
     els.exportTemplate.disabled = true;
+    els.saveSidecar.disabled = true;
     return;
   }
 
@@ -158,6 +163,8 @@ async function openFile(file) {
   els.exportFilled.disabled = false;
   els.exportLayered.disabled = false;
   els.exportTemplate.disabled = false;
+  els.saveSidecar.disabled = false;
+  els.sidecarMessage.textContent = '';
 
   // Detected via the same pdf-lib document doc.js already loaded to read page geometry — a
   // separate parse isn't needed just to ask getForm().getFields(). SPEC.md, "Existing AcroForm
@@ -367,3 +374,72 @@ async function resolveSignatureImages() {
   }
   return map;
 }
+
+// --- Sidecar -----------------------------------------------------------------------------------
+
+function setSidecarMessage(text) {
+  els.sidecarMessage.textContent = text ?? '';
+}
+
+/** filename.pdf -> filename.sidecar.json */
+function sidecarFileName(originalName) {
+  const dot = originalName.lastIndexOf('.');
+  const stem = dot === -1 ? originalName : originalName.slice(0, dot);
+  return `${stem}.sidecar.json`;
+}
+
+els.saveSidecar.addEventListener('click', async () => {
+  if (!sourceBytes) return;
+  const json = serialiseSidecar(await createSidecar(sourceBytes, pageGeometries, placements));
+  const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = sidecarFileName(sourceFileName);
+  link.click();
+  URL.revokeObjectURL(url);
+});
+
+els.loadSidecar.addEventListener('change', async (event) => {
+  const [file] = event.target.files;
+  if (!file) return;
+  event.target.value = ''; // so choosing the same file again still fires 'change'
+
+  if (!sourceBytes) {
+    setSidecarMessage('Open the PDF this sidecar belongs to first.');
+    return;
+  }
+
+  let sidecar;
+  try {
+    sidecar = parseSidecar(await file.text());
+  } catch (error) {
+    setSidecarMessage(`That doesn't look like a former sidecar: ${error.message}`);
+    return;
+  }
+
+  const outcome = await compareSidecar(sidecar, sourceBytes, pageGeometries);
+  if (outcome === 'refuse') {
+    setSidecarMessage(
+      `This sidecar was saved against a ${sidecar.source.pageCount}-page document; this one doesn't match closely enough. Not attaching it.`,
+    );
+    return;
+  }
+
+  handlePlacementsChange(sidecar.placements);
+  properties.select(null);
+
+  const missingSignatures = sidecar.placements.filter(
+    (p) => p.type === 'signature' && p.imageId && !savedSignatures.some((s) => s.id === p.imageId),
+  ).length;
+
+  const parts = [];
+  if (outcome === 'changed') {
+    parts.push('The document has changed since this sidecar was saved — check every placement.');
+  }
+  if (missingSignatures > 0) {
+    parts.push(
+      `${missingSignatures} signature placement(s) need their image reselected — it's no longer saved in this browser.`,
+    );
+  }
+  setSidecarMessage(parts.join(' ') || 'Sidecar attached.');
+});
