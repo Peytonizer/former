@@ -8,6 +8,7 @@ import { createPropertiesPanel } from './editor/properties.js';
 import { visualSize } from './geometry.js';
 import { loadDocument } from './doc.js';
 import { buildThumbnailRail, openForRendering, renderPageInto, setActiveThumbnail } from './render.js';
+import { fullFontByteSize } from './fonts.js';
 import { writeFilled } from './writeFilled.js';
 import { writeLayered, writeTemplate } from './writeFields.js';
 
@@ -40,11 +41,20 @@ const els = {
   exportFilled: document.querySelector('[data-export-filled]'),
   exportLayered: document.querySelector('[data-export-layered]'),
   exportTemplate: document.querySelector('[data-export-template]'),
+  exportSizeNote: document.querySelector('[data-export-size-note]'),
   properties: document.querySelector('[data-properties]'),
   build: document.querySelector('[data-build]'),
 };
 
 if (els.build) els.build.textContent = import.meta.env.VITE_COMMIT_SHA;
+
+// An honest size estimate up front (SPEC.md, "Fonts") — the full font embed layered and
+// template both need is several hundred kilobytes, and a user who doesn't know why would
+// otherwise assume the export is broken. Filled mode subsets, so it isn't quoted here.
+if (els.exportSizeNote) {
+  const kb = Math.round(fullFontByteSize() / 1024);
+  els.exportSizeNote.textContent = ` Layered and template each add ~${kb} KB for the full font embed.`;
+}
 
 /** @type {{ task: import('pdfjs-dist').PDFDocumentLoadingTask, pdfJsDoc: object } | null} */
 let current = null;

@@ -21,7 +21,14 @@
  *
  * Filled mode embeds a subset (every character is known at export time); layered and template
  * embed the font in full, because a recipient can type characters no subset would contain
- * (SPEC.md, "Fonts"). Auto-fit measurement lands at build stage 11.
+ * (SPEC.md, "Fonts").
+ *
+ * Auto-fit (`fontSize: 0`) is only ever computed here for **filled** mode — SPEC.md is explicit
+ * that layered and template instead pass `0` straight through to pdf-lib and let the viewer size
+ * it. `autoFitFontSize` binary-searches the largest size that fits a box, using the embedded
+ * font's own `widthOfTextAtSize`; `wrapLines` is exported alongside it because a multiline
+ * placement's fit depends on its *wrapped* height, and `writeFilled.js` needs the same wrapping
+ * to actually draw the lines it measured.
  */
 import fontkit from '@pdf-lib/fontkit';
 
@@ -41,6 +48,16 @@ let cachedBytes = null;
 function outputFontBytes() {
   cachedBytes ??= bytesFromDataUrl(fontDataUrl);
   return cachedBytes;
+}
+
+/**
+ * The full font's size in bytes — an honest estimate for the export dialog's "layered and
+ * template add about N KB for the full font embed" note (SPEC.md, "Fonts"). A subset is always
+ * smaller than this, sometimes drastically so, so this is deliberately not offered as an
+ * estimate for filled mode.
+ */
+export function fullFontByteSize() {
+  return outputFontBytes().length;
 }
 
 /**
@@ -69,4 +86,79 @@ export async function embedSubsetFont(pdfDoc) {
 export async function embedFullFont(pdfDoc) {
   pdfDoc.registerFontkit(fontkit);
   return pdfDoc.embedFont(outputFontBytes());
+}
+
+/** Auto-fit never goes above or below these, however small or large the box is. */
+export const AUTO_FIT_MIN_PT = 6;
+export const AUTO_FIT_MAX_PT = 48;
+
+/**
+ * A reasonable single-spacing factor for stacking wrapped lines. Not specified anywhere in
+ * SPEC.md — unlike the coordinate transform, this is ordinary typographic judgement, not a
+ * pdf-lib fact to get right or wrong. Exported so `writeFilled.js` stacks its drawn lines at
+ * the exact spacing this module measured against.
+ */
+export const LINE_HEIGHT_FACTOR = 1.2;
+
+/**
+ * Break `text` into lines that each fit within `maxWidth` at `size`, breaking on whitespace. A
+ * single word wider than `maxWidth` is kept whole on its own line rather than split mid-word —
+ * there is no hyphenation here.
+ *
+ * @param {import('pdf-lib').PDFFont} font
+ * @param {string} text
+ * @param {number} size
+ * @param {number} maxWidth
+ * @returns {string[]}
+ */
+export function wrapLines(font, text, size, maxWidth) {
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [''];
+
+  const lines = [];
+  let current = '';
+  for (const word of words) {
+    const attempt = current ? `${current} ${word}` : word;
+    if (current && font.widthOfTextAtSize(attempt, size) > maxWidth) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = attempt;
+    }
+  }
+  lines.push(current);
+  return lines;
+}
+
+/**
+ * The largest font size in `[AUTO_FIT_MIN_PT, AUTO_FIT_MAX_PT]` at which `text` fits `maxWidth`
+ * points wide — and, for multiline text, at which its wrapped lines together fit `maxHeight`
+ * points tall. Binary search over integer point sizes: fit is monotonic in size (a size that
+ * doesn't fit never fits at a larger size), so this converges directly rather than scanning.
+ *
+ * @param {import('pdf-lib').PDFFont} font
+ * @param {string} text
+ * @param {number} maxWidth
+ * @param {{ multiline?: boolean, maxHeight?: number }} [options]
+ */
+export function autoFitFontSize(font, text, maxWidth, { multiline = false, maxHeight = Infinity } = {}) {
+  const fits = (size) => {
+    if (!multiline) return font.widthOfTextAtSize(text, size) <= maxWidth;
+    const lines = wrapLines(font, text, size, maxWidth);
+    return lines.length * size * LINE_HEIGHT_FACTOR <= maxHeight;
+  };
+
+  let lo = AUTO_FIT_MIN_PT;
+  let hi = AUTO_FIT_MAX_PT;
+  let best = AUTO_FIT_MIN_PT; // if even the minimum doesn't fit, draw at the minimum anyway
+  while (lo <= hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (fits(mid)) {
+      best = mid;
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return best;
 }

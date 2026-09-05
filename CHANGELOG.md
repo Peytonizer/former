@@ -75,3 +75,13 @@ headings are cut when a meaningful chunk of work lands, not on every commit.
   the process: editing a placement through the properties panel updated the data but never
   re-rendered the canvas overlay, so a renamed placement's on-page label never appeared, until
   main.js was wired to re-render the canvas from both the panel's and the canvas's own changes.
+- Build stage 11: fonts.js's auto-fit. `fontSize: 0` in filled mode now binary-searches the
+  largest size that fits the box (and, for multiline, the wrapped height) with the embedded
+  font's own `widthOfTextAtSize`, and multiline placements are actually wrapped and drawn as
+  stacked lines, not one overflowing line. An export-size note now gives an honest ~KB estimate
+  for the full font embed layered and template both need. Checked a real pdf-lib behaviour in a
+  Node probe rather than assuming SPEC.md's "pass 0 through and let the viewer auto-size" holds
+  literally: calling `setFontSize` at all marks a field dirty, and `PDFDocument.save()`
+  unconditionally regenerates a dirty field's appearance with a real computed size, baking that
+  into `/DA` regardless of what was asked for — `NeedAppearances` is what still delivers the
+  auto-size intent to a compliant reader. SPEC.md corrected accordingly.

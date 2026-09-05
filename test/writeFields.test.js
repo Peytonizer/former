@@ -238,3 +238,42 @@ describe('writeFields — check, dropdown and radio (build stage 10)', () => {
     expect(doc.getForm().getRadioGroup('contact').getSelected()).toBeUndefined();
   });
 });
+
+describe('writeFields — font size (build stage 11)', () => {
+  it('sets a text field\'s explicit font size', async () => {
+    const placement = named(
+      createPlacement({ page: 0, type: 'text', rect: { x: 10, y: 10, w: 100, h: 20 } }),
+      'x',
+    );
+    placement.fontSize = 18;
+
+    const { pdfDoc, geometry } = await blankPage(0);
+    const bytes = await writeTemplate(pdfDoc, [placement], [geometry]);
+    const doc = await PDFDocument.load(bytes);
+
+    expect(doc.getForm().getTextField('x').acroField.getDefaultAppearance()).toContain(' 18 Tf');
+  });
+
+  it('never leaves a literal 0 (auto) font size in the saved file for fontSize: 0', async () => {
+    // setFontSize(0) is still called (SPEC.md's "pass 0 through to pdf-lib"), but pdf-lib marks
+    // the field dirty as a side effect of calling setFontSize at all, and PDFDocument.save()
+    // unconditionally regenerates a dirty field's appearance with a real computed size — verified
+    // in a Node probe, since this isn't one of SPEC.md's own verified claims. So "passing 0
+    // through" doesn't survive as literal 0 in the output regardless of what we do here; what
+    // actually still delivers the auto-size intent to a real viewer is NeedAppearances, which
+    // tells a compliant one to disregard our baked appearance and /DA and compute its own.
+    const placement = named(
+      createPlacement({ page: 0, type: 'text', rect: { x: 10, y: 10, w: 100, h: 20 } }),
+      'x',
+    );
+    // fontSize already defaults to 0 from createPlacement.
+
+    const { pdfDoc, geometry } = await blankPage(0);
+    const bytes = await writeTemplate(pdfDoc, [placement], [geometry]);
+    const doc = await PDFDocument.load(bytes);
+
+    const da = doc.getForm().getTextField('x').acroField.getDefaultAppearance();
+    const [, size] = da.match(/(\d+(?:\.\d+)?) Tf/);
+    expect(Number(size)).toBeGreaterThan(0);
+  });
+});

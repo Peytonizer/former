@@ -161,6 +161,18 @@ async function writeFields(pdfDoc, placements, pageGeometries, { setValues }) {
       widgetsByPage.get(placement.page).push({ ref, placement });
     }
 
+    // setFontSize needs a /DA string to already exist on the field, which only the widget it
+    // was just given creates. 0 is passed through per SPEC.md's "Fonts" — auto-fit is only
+    // filled mode's own calculation, so a fontSize of 0 here means "let the viewer size it" —
+    // but it does not survive as a literal 0 in the saved file: calling setFontSize at all marks
+    // the field dirty, and PDFDocument.save() unconditionally regenerates a dirty field's
+    // appearance with a real computed size, baking that same number into /DA as a side effect.
+    // Both facts verified in a Node probe, since neither is one of SPEC.md's own verified claims.
+    // NeedAppearances (set below) is what actually still delivers "let the viewer size it" to a
+    // compliant reader, which disregards our baked appearance and /DA and computes its own.
+    // Check and radio have no text of their own, so neither field type exposes setFontSize.
+    if (type === 'text' || type === 'dropdown') field.setFontSize(group[0].fontSize);
+
     if (setValues) applyValue(field, type, group);
   }
 

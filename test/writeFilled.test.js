@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { PDFDocument } from 'pdf-lib';
 import { describe, expect, it, vi } from 'vitest';
 
+import { AUTO_FIT_MAX_PT, AUTO_FIT_MIN_PT, autoFitFontSize, embedSubsetFont } from '../src/fonts.js';
 import { createPlacement } from '../src/placements.js';
 import { writeFilled } from '../src/writeFilled.js';
 
@@ -48,17 +49,53 @@ describe('writeFilled', () => {
     expect(options.rotate.angle).toBe(90);
   });
 
-  it('falls back to a default size when fontSize is 0 (auto-fit is stage 11)', async () => {
+  it('auto-fits to the size fonts.js computes when fontSize is 0, delegating rather than reimplementing', async () => {
+    const rect = { x: 10, y: 10, w: 100, h: 20 };
+    const value = 'Short';
+
     const pdfDoc = await PDFDocument.load(fixture('flat-a4.pdf'));
     const spy = vi.spyOn(pdfDoc.getPages()[0], 'drawText');
-
-    const placement = createPlacement({ page: 0, type: 'text', rect: { x: 10, y: 10, w: 100, h: 20 } });
-    placement.value = 'x';
+    const placement = createPlacement({ page: 0, type: 'text', rect });
+    placement.value = value;
     placement.fontSize = 0;
 
     await writeFilled(pdfDoc, [placement], geometriesOf(pdfDoc));
+    const usedSize = spy.mock.calls[0][1].size;
 
-    expect(spy.mock.calls[0][1].size).toBe(12);
+    // Cross-check against fonts.js directly, on an independent embed of the same font bytes.
+    const probeDoc = await PDFDocument.load(fixture('flat-a4.pdf'));
+    const font = await embedSubsetFont(probeDoc);
+    const expected = autoFitFontSize(font, value, rect.w);
+
+    expect(usedSize).toBe(expected);
+    expect(usedSize).toBeGreaterThanOrEqual(AUTO_FIT_MIN_PT);
+    expect(usedSize).toBeLessThanOrEqual(AUTO_FIT_MAX_PT);
+    expect(font.widthOfTextAtSize(value, usedSize)).toBeLessThanOrEqual(rect.w);
+  });
+
+  it('wraps and stacks a multiline placement, the last line at the placement\'s own anchor', async () => {
+    const rect = { x: 10, y: 10, w: 90, h: 60 };
+    const value = 'one two three four five six seven eight';
+
+    const pdfDoc = await PDFDocument.load(fixture('flat-a4.pdf'));
+    const spy = vi.spyOn(pdfDoc.getPages()[0], 'drawText');
+    const placement = createPlacement({ page: 0, type: 'text', rect });
+    placement.value = value;
+    placement.fontSize = 10;
+    placement.multiline = true;
+
+    await writeFilled(pdfDoc, [placement], geometriesOf(pdfDoc));
+
+    expect(spy.mock.calls.length).toBeGreaterThan(1); // it actually wrapped, not one long line
+    const lastCall = spy.mock.calls.at(-1);
+    // The last drawn line sits exactly where a single-line placement would anchor — the
+    // multiline case is meant to generalise the single-line rule, not replace it.
+    expect(lastCall[1].x).toBe(10);
+    expect(lastCall[1].y).toBe(10);
+
+    // Every line reassembles the original words, in order, none dropped.
+    const drawnWords = spy.mock.calls.flatMap((call) => call[0].split(' '));
+    expect(drawnWords).toEqual(value.split(' '));
   });
 
   it('draws nothing for an empty value, without throwing', async () => {

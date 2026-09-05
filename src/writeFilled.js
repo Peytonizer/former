@@ -20,27 +20,38 @@
  * sharing the name — see `placements.js`), so "am I the selected one" is `optionValue === value`
  * on the one placement alone.
  *
- * fontSize: 0 (auto-fit) and alignment both need text measurement and land with fonts.js at
- * stage 11; multiline wrapping lands there too. The signature image path is signature.js at
- * stage 12. Every other placement type is skipped here, not an error — the properties panel that
- * would make an unnamed field creatable doesn't fully exist yet either.
+ * `fontSize: 0` auto-fits via fonts.js's `autoFitFontSize` (filled mode's own calculation, per
+ * SPEC.md — layered and template instead pass `0` straight through to pdf-lib). A multiline
+ * placement is wrapped with the same `wrapLines` the size search measured against, and its lines
+ * are stacked so the *last* line's baseline sits at the placement's own visual bottom-left —
+ * consistent with the single-line rule above, of which it is the one-line special case, rather
+ * than a top-anchored convention invented just for this. Alignment isn't implemented: SPEC.md
+ * only asks for auto-fit and multiline at this stage, and alignment shifts the anchor sideways by
+ * the same measured width auto-fit already computes, so it is a small addition to make later
+ * rather than a gap being carried silently.
+ *
+ * The signature image path is signature.js at stage 12. Every other placement type is skipped
+ * here, not an error — the properties panel that would make an unnamed field creatable doesn't
+ * fully exist yet either.
  */
 import { degrees, rgb } from 'pdf-lib';
 
-import { embedSubsetFont } from './fonts.js';
+import { autoFitFontSize, embedSubsetFont, LINE_HEIGHT_FACTOR, wrapLines } from './fonts.js';
 import { userFromVisual } from './geometry.js';
 
-/** Used only until fonts.js's auto-fit (stage 11) replaces `fontSize: 0`. */
-const FALLBACK_FONT_SIZE_PT = 12;
-
 function drawText(page, font, geometry, placement, text) {
-  const anchor = userFromVisual(geometry, placement.rect.x, placement.rect.y);
-  page.drawText(text || '', {
-    x: anchor.x,
-    y: anchor.y,
-    size: placement.fontSize || FALLBACK_FONT_SIZE_PT,
-    font,
-    rotate: degrees(geometry.rotate),
+  const value = text || '';
+  const size = placement.fontSize || autoFitFontSize(font, value, placement.rect.w, {
+    multiline: placement.multiline,
+    maxHeight: placement.rect.h,
+  });
+  const lines = placement.multiline ? wrapLines(font, value, size, placement.rect.w) : [value];
+  const lineHeight = size * LINE_HEIGHT_FACTOR;
+
+  lines.forEach((line, i) => {
+    const fromBottom = lines.length - 1 - i; // 0 for the last line, increasing upward
+    const anchor = userFromVisual(geometry, placement.rect.x, placement.rect.y + fromBottom * lineHeight);
+    page.drawText(line, { x: anchor.x, y: anchor.y, size, font, rotate: degrees(geometry.rotate) });
   });
 }
 
