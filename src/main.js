@@ -9,6 +9,15 @@ import { visualSize } from './geometry.js';
 import { loadDocument } from './doc.js';
 import { buildThumbnailRail, openForRendering, renderPageInto, setActiveThumbnail } from './render.js';
 import { fullFontByteSize } from './fonts.js';
+import {
+  createSignaturePad,
+  deleteSignature,
+  hasNoTransparency,
+  listSignatures,
+  loadSignature,
+  saveSignature,
+  sniffImageType,
+} from './signature.js';
 import { writeFilled } from './writeFilled.js';
 import { writeLayered, writeTemplate } from './writeFields.js';
 
@@ -44,6 +53,13 @@ const els = {
   exportSizeNote: document.querySelector('[data-export-size-note]'),
   properties: document.querySelector('[data-properties]'),
   build: document.querySelector('[data-build]'),
+  signatureList: document.querySelector('[data-signature-list]'),
+  signatureCanvas: document.querySelector('[data-signature-canvas]'),
+  signatureClearPad: document.querySelector('[data-signature-clear-pad]'),
+  signatureLabel: document.querySelector('[data-signature-label]'),
+  signatureSaveDrawn: document.querySelector('[data-signature-save-drawn]'),
+  signatureUpload: document.querySelector('[data-signature-upload]'),
+  signatureMessage: document.querySelector('[data-signature-message]'),
 };
 
 if (els.build) els.build.textContent = import.meta.env.VITE_COMMIT_SHA;
@@ -78,9 +94,13 @@ function handlePlacementsChange(next) {
   editor.render();
 }
 
+/** @type {import('./signature.js').StoredSignature[]} */
+let savedSignatures = [];
+
 const properties = createPropertiesPanel({
   container: els.properties,
   getPlacements: () => placements,
+  getSignatures: () => savedSignatures,
   onChange: handlePlacementsChange,
 });
 
@@ -196,14 +216,116 @@ function downloadBytes(bytes, fileName) {
   URL.revokeObjectURL(url);
 }
 
-/** Every export re-parses a fresh document — see the comment on `sourceBytes` above. */
+/** Every export re-parses a fresh document — see the comment on `sourceBytes` above. The
+ * resolved signature map is harmless to pass to writeLayered/writeTemplate too; neither declares
+ * a fourth parameter, so they simply ignore it. */
 async function withFreshDocument(writer, suffix) {
   if (!sourceBytes) return;
   const pdfDoc = await PDFDocument.load(sourceBytes);
-  const bytes = await writer(pdfDoc, placements, pageGeometries);
+  const signatureImages = await resolveSignatureImages();
+  const bytes = await writer(pdfDoc, placements, pageGeometries, signatureImages);
   downloadBytes(bytes, derivedFileName(sourceFileName, suffix));
 }
 
 els.exportFilled.addEventListener('click', () => withFreshDocument(writeFilled, 'filled'));
 els.exportLayered.addEventListener('click', () => withFreshDocument(writeLayered, 'layered'));
 els.exportTemplate.addEventListener('click', () => withFreshDocument(writeTemplate, 'template'));
+
+// --- Signatures ------------------------------------------------------------------------------
+// Independent of any loaded document — signatures are saved once and reused across sessions
+// (SPEC.md, "Signature storage"), so this section works whether or not a PDF is open.
+
+function setSignatureMessage(text) {
+  els.signatureMessage.textContent = text ?? '';
+}
+
+async function refreshSignatureList() {
+  savedSignatures = await listSignatures();
+
+  els.signatureList.replaceChildren(
+    ...savedSignatures.map((signature) => {
+      const item = document.createElement('div');
+      item.className = 'signature-item';
+
+      const img = document.createElement('img');
+      img.alt = signature.label;
+      img.src = URL.createObjectURL(new Blob([signature.bytes], { type: signature.mimeType }));
+
+      const label = document.createElement('span');
+      label.textContent = signature.label;
+
+      const clear = document.createElement('button');
+      clear.type = 'button';
+      clear.textContent = '✕';
+      clear.setAttribute('aria-label', `Clear "${signature.label}"`);
+      clear.addEventListener('click', async () => {
+        await deleteSignature(signature.id);
+        await refreshSignatureList();
+      });
+
+      item.append(img, label, clear);
+      return item;
+    }),
+  );
+
+  properties.render(); // the "which signature" picker's option list may have just changed
+}
+
+const signaturePad = createSignaturePad(els.signatureCanvas);
+
+els.signatureClearPad.addEventListener('click', () => signaturePad.clear());
+
+els.signatureSaveDrawn.addEventListener('click', async () => {
+  if (signaturePad.isEmpty()) {
+    setSignatureMessage('Draw a signature first.');
+    return;
+  }
+  const bytes = await signaturePad.toPngBytes();
+  await saveSignature({
+    id: crypto.randomUUID(),
+    label: els.signatureLabel.value.trim() || 'Signature',
+    mimeType: 'image/png',
+    bytes,
+  });
+  signaturePad.clear();
+  els.signatureLabel.value = '';
+  setSignatureMessage('');
+  await refreshSignatureList();
+});
+
+els.signatureUpload.addEventListener('change', async (event) => {
+  const [file] = event.target.files;
+  if (!file) return;
+  event.target.value = ''; // so choosing the same file again still fires 'change'
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const mimeType = sniffImageType(bytes);
+  if (!mimeType) {
+    setSignatureMessage('That file is not a PNG or JPEG. Re-export it as one of those and try again.');
+    return;
+  }
+
+  await saveSignature({ id: crypto.randomUUID(), label: els.signatureLabel.value.trim() || 'Signature', mimeType, bytes });
+  els.signatureLabel.value = '';
+  setSignatureMessage(
+    hasNoTransparency(mimeType)
+      ? 'Saved. Note: a JPEG has no transparency, so it will carry a white box over whatever is under it.'
+      : '',
+  );
+  await refreshSignatureList();
+});
+
+await refreshSignatureList();
+
+/** Every signature placement's imageId that has something saved, resolved to its bytes — the
+ * shape writeFilled.js's signatureImages parameter wants. Only filled mode ever draws one. */
+async function resolveSignatureImages() {
+  const ids = new Set(placements.filter((p) => p.type === 'signature' && p.imageId).map((p) => p.imageId));
+  const map = new Map();
+  for (const id of ids) {
+    // oxlint-disable-next-line no-await-in-loop
+    const stored = await loadSignature(id);
+    if (stored) map.set(id, stored.bytes);
+  }
+  return map;
+}

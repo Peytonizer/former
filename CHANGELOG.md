@@ -85,3 +85,14 @@ headings are cut when a meaningful chunk of work lands, not on every commit.
   unconditionally regenerates a dirty field's appearance with a real computed size, baking that
   into `/DA` regardless of what was asked for — `NeedAppearances` is what still delivers the
   auto-size intent to a compliant reader. SPEC.md corrected accordingly.
+- Build stage 12: signature.js — draw on a canvas (smoothed with quadratic curves through
+  consecutive midpoints) or upload a PNG/JPEG, sniffed by magic number and never trusted by
+  extension or claimed MIME type. Saved to IndexedDB — the one deliberate exception to "nothing
+  is persisted" — with a one-click clear visible in the main UI at all times, not buried in a
+  settings pane, and more than one signature allowed at once. `writeFilled.js` now draws the
+  saved image at a signature placement's anchor; `writeFields.js` never creates a field for one
+  (SPEC.md is explicit that a signature can't become one), except in template mode, where
+  `asTextInTemplate: true` substitutes an ordinary empty text field so the recipient can type
+  their name. Verified end-to-end in a browser: drawing, saving, uploading (including the
+  JPEG-has-no-transparency warning and the not-a-PNG-or-JPEG refusal), clearing, and picking a
+  saved signature for a placement through the properties panel, through to a clean filled export.

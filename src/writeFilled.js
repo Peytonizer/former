@@ -30,14 +30,21 @@
  * the same measured width auto-fit already computes, so it is a small addition to make later
  * rather than a gap being carried silently.
  *
- * The signature image path is signature.js at stage 12. Every other placement type is skipped
- * here, not an error — the properties panel that would make an unnamed field creatable doesn't
- * fully exist yet either.
+ * A signature placement is drawn from `signatureImages`, a `Map<imageId, Uint8Array>` the caller
+ * resolves from IndexedDB ahead of time (signature.js) — this module stays testable in Node with
+ * a plain map and never touches browser storage itself. The stored bytes are sniffed the same
+ * way an upload is (`sniffImageType`), because trusting whatever mime type was recorded when the
+ * signature was saved is exactly the kind of assumption that breaks quietly. A placement with no
+ * matching entry (nothing saved yet, or the id is stale) draws nothing, not an error.
+ *
+ * Every other placement type not mentioned above is skipped here, not an error — the properties
+ * panel that would make an unnamed field creatable doesn't fully exist yet either.
  */
 import { degrees, rgb } from 'pdf-lib';
 
 import { autoFitFontSize, embedSubsetFont, LINE_HEIGHT_FACTOR, wrapLines } from './fonts.js';
 import { userFromVisual } from './geometry.js';
+import { sniffImageType } from './signature.js';
 
 function drawText(page, font, geometry, placement, text) {
   const value = text || '';
@@ -70,6 +77,23 @@ function drawCheckmark(page, geometry, rect) {
   page.drawLine({ start: points[1], end: points[2], thickness, color });
 }
 
+/** Embed and draw a signature image at `rect`, per the same anchor+rotate rule as everything
+ * else — an image, like text, is drawn about its own visual bottom-left corner. */
+async function drawSignature(pdfDoc, page, geometry, rect, bytes) {
+  const mimeType = sniffImageType(bytes);
+  if (!mimeType) return; // corrupt or since-deleted signature bytes; nothing sane to draw
+
+  const image = mimeType === 'image/png' ? await pdfDoc.embedPng(bytes) : await pdfDoc.embedJpg(bytes);
+  const anchor = userFromVisual(geometry, rect.x, rect.y);
+  page.drawImage(image, {
+    x: anchor.x,
+    y: anchor.y,
+    width: rect.w,
+    height: rect.h,
+    rotate: degrees(geometry.rotate),
+  });
+}
+
 /**
  * Draw every placement into its page's content stream and return the saved PDF bytes. `pdfDoc`
  * is mutated in place, matching pdf-lib's own idiom, then saved.
@@ -78,9 +102,10 @@ function drawCheckmark(page, geometry, rect) {
  * @param {import('./placements.js').Placement[]} placements
  * @param {import('./geometry.js').PageGeometry[]} pageGeometries  one per page, same order as
  *   `pdfDoc.getPages()`
+ * @param {Map<string, Uint8Array>} [signatureImages]  imageId -> saved signature bytes
  * @returns {Promise<Uint8Array>}
  */
-export async function writeFilled(pdfDoc, placements, pageGeometries) {
+export async function writeFilled(pdfDoc, placements, pageGeometries, signatureImages = new Map()) {
   const font = await embedSubsetFont(pdfDoc);
   const pages = pdfDoc.getPages();
 
@@ -96,8 +121,14 @@ export async function writeFilled(pdfDoc, placements, pageGeometries) {
       if (placement.optionValue && placement.optionValue === placement.value) {
         drawCheckmark(page, geometry, placement.rect);
       }
+    } else if (placement.type === 'signature') {
+      const bytes = signatureImages.get(placement.imageId);
+      // Sequential, not Promise.all: embedding mutates pdfDoc's shared context, and placements
+      // must stay in their own list order regardless — the same reasoning as render.js's
+      // thumbnail loop.
+      // oxlint-disable-next-line no-await-in-loop
+      if (bytes) await drawSignature(pdfDoc, page, geometry, placement.rect, bytes);
     }
-    // signature: stage 12.
   }
 
   return pdfDoc.save();

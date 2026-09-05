@@ -6,11 +6,12 @@
  *
  * Value and options are applied with `updateGroup`, not `updatePlacement` — SPEC.md's "same
  * field as…" model means a field's value must be identical across every widget sharing its
- * name, not just the one being edited (see `placements.js`, `updateGroup`). `name`, `optionValue`
- * and `fontSize` are per-widget and use plain `updatePlacement` instead: `optionValue` is a
- * radio widget's own fixed option, never shared, and `fontSize` isn't wired into any writer's
- * field creation yet (that lands with fonts.js at stage 11), so there is nothing to keep in sync
- * across a group for it today.
+ * name, not just the one being edited (see `placements.js`, `updateGroup`). `name`, `optionValue`,
+ * `fontSize`, `imageId` and `asTextInTemplate` are all per-widget and use plain `updatePlacement`
+ * instead: `optionValue` is a radio widget's own fixed option, never shared; `fontSize` shares a
+ * field only once a writer actually consumes it per-group, which none does yet outside filled
+ * mode's own per-placement draw; and a signature's saved image or template choice is reasonably
+ * a per-instance decision (a different spot on the form might want a different saved signature).
  */
 import { updateGroup, updatePlacement } from '../placements.js';
 
@@ -18,10 +19,11 @@ import { updateGroup, updatePlacement } from '../placements.js';
  * @param {{
  *   container: HTMLElement,
  *   getPlacements: () => import('../placements.js').Placement[],
+ *   getSignatures: () => import('../signature.js').StoredSignature[],
  *   onChange: (next: import('../placements.js').Placement[]) => void,
  * }} args
  */
-export function createPropertiesPanel({ container, getPlacements, onChange }) {
+export function createPropertiesPanel({ container, getPlacements, getSignatures, onChange }) {
   const els = {
     name: container.querySelector('[data-prop-name]'),
     existingNames: container.querySelector('[data-existing-names]'),
@@ -38,6 +40,8 @@ export function createPropertiesPanel({ container, getPlacements, onChange }) {
     rowFontSize: container.querySelector('[data-prop-row-fontsize]'),
     fontSize: container.querySelector('[data-prop-fontsize]'),
     rowSignature: container.querySelector('[data-prop-row-signature]'),
+    signatureSelect: container.querySelector('[data-prop-signature-select]'),
+    asTextInTemplate: container.querySelector('[data-prop-as-text-in-template]'),
   };
 
   let currentId = null;
@@ -97,6 +101,24 @@ export function createPropertiesPanel({ container, getPlacements, onChange }) {
     if (placement.type === 'text' || placement.type === 'dropdown') {
       els.fontSize.value = placement.fontSize;
     }
+
+    if (placement.type === 'signature') {
+      const signatures = getSignatures();
+      const empty = document.createElement('option');
+      empty.value = '';
+      empty.textContent = signatures.length === 0 ? 'No signatures saved yet' : 'Choose one…';
+      els.signatureSelect.replaceChildren(
+        empty,
+        ...signatures.map((sig) => {
+          const option = document.createElement('option');
+          option.value = sig.id;
+          option.textContent = sig.label;
+          option.selected = sig.id === placement.imageId;
+          return option;
+        }),
+      );
+      els.asTextInTemplate.checked = Boolean(placement.asTextInTemplate);
+    }
   }
 
   /** Apply a patch to only the current placement. */
@@ -134,6 +156,9 @@ export function createPropertiesPanel({ container, getPlacements, onChange }) {
     if (!placement) return;
     commitGroup({ value: els.radioSelected.checked ? placement.optionValue : '' });
   });
+
+  els.signatureSelect.addEventListener('change', () => commit({ imageId: els.signatureSelect.value || null }));
+  els.asTextInTemplate.addEventListener('change', () => commit({ asTextInTemplate: els.asTextInTemplate.checked }));
 
   return {
     /** @param {string|null} id */

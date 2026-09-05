@@ -205,3 +205,54 @@ describe('writeFilled', () => {
     expect(spy1).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('writeFilled — signatures (build stage 12)', () => {
+  it('draws the saved image at the placement\'s anchor', async () => {
+    const pdfDoc = await PDFDocument.load(fixture('flat-a4.pdf'));
+    const spy = vi.spyOn(pdfDoc.getPages()[0], 'drawImage');
+    const placement = createPlacement({ page: 0, type: 'signature', rect: { x: 60, y: 40, w: 120, h: 40 } });
+    placement.imageId = 'sig-1';
+
+    await writeFilled(pdfDoc, [placement], geometriesOf(pdfDoc), new Map([['sig-1', fixture('sig.png')]]));
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    const [, options] = spy.mock.calls[0];
+    expect(options.x).toBe(60);
+    expect(options.y).toBe(40);
+    expect(options.width).toBe(120);
+    expect(options.height).toBe(40);
+  });
+
+  it('draws nothing when the placement\'s imageId has no matching saved signature', async () => {
+    const pdfDoc = await PDFDocument.load(fixture('flat-a4.pdf'));
+    const spy = vi.spyOn(pdfDoc.getPages()[0], 'drawImage');
+    const placement = createPlacement({ page: 0, type: 'signature', rect: { x: 60, y: 40, w: 120, h: 40 } });
+    placement.imageId = 'never-saved';
+
+    await writeFilled(pdfDoc, [placement], geometriesOf(pdfDoc), new Map());
+
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('draws nothing for bytes that do not sniff as PNG or JPEG', async () => {
+    const pdfDoc = await PDFDocument.load(fixture('flat-a4.pdf'));
+    const spy = vi.spyOn(pdfDoc.getPages()[0], 'drawImage');
+    const placement = createPlacement({ page: 0, type: 'signature', rect: { x: 60, y: 40, w: 120, h: 40 } });
+    placement.imageId = 'bad';
+
+    await writeFilled(pdfDoc, [placement], geometriesOf(pdfDoc), new Map([['bad', fixture('not-an-image.heic')]]));
+
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('accepts a JPEG signature too', async () => {
+    const pdfDoc = await PDFDocument.load(fixture('flat-a4.pdf'));
+    const spy = vi.spyOn(pdfDoc.getPages()[0], 'drawImage');
+    const placement = createPlacement({ page: 0, type: 'signature', rect: { x: 60, y: 40, w: 120, h: 40 } });
+    placement.imageId = 'sig-jpg';
+
+    await writeFilled(pdfDoc, [placement], geometriesOf(pdfDoc), new Map([['sig-jpg', fixture('sig.jpg')]]));
+
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+});

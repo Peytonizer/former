@@ -277,3 +277,49 @@ describe('writeFields — font size (build stage 11)', () => {
     expect(Number(size)).toBeGreaterThan(0);
   });
 });
+
+describe('writeFields — signature placements (build stage 12)', () => {
+  it('template: turns asTextInTemplate: true into a real, empty text field', async () => {
+    const placement = named(
+      createPlacement({ page: 0, type: 'signature', rect: { x: 10, y: 10, w: 150, h: 40 } }),
+      'signed',
+    );
+    const withChoice = updatePlacement([placement], placement.id, { asTextInTemplate: true })[0];
+
+    const { pdfDoc, geometry } = await blankPage(0);
+    const bytes = await writeTemplate(pdfDoc, [withChoice], [geometry]);
+    const doc = await PDFDocument.load(bytes);
+    const form = doc.getForm();
+
+    expect(form.getFields()).toHaveLength(1);
+    expect(form.getTextField('signed').getText()).toBeUndefined();
+  });
+
+  it('template: emits nothing at all when asTextInTemplate is false', async () => {
+    const placement = named(
+      createPlacement({ page: 0, type: 'signature', rect: { x: 10, y: 10, w: 150, h: 40 } }),
+      'signed',
+    );
+    // asTextInTemplate defaults to false from createPlacement.
+
+    const { pdfDoc, geometry } = await blankPage(0);
+    const bytes = await writeTemplate(pdfDoc, [placement], [geometry]);
+    const doc = await PDFDocument.load(bytes);
+
+    expect(doc.getForm().getFields()).toHaveLength(0);
+  });
+
+  it('layered: never creates a field for a signature, even with asTextInTemplate: true', async () => {
+    const placement = named(
+      createPlacement({ page: 0, type: 'signature', rect: { x: 10, y: 10, w: 150, h: 40 } }),
+      'signed',
+    );
+    const withChoice = updatePlacement([placement], placement.id, { asTextInTemplate: true })[0];
+
+    const { pdfDoc, geometry } = await blankPage(0);
+    const bytes = await writeLayered(pdfDoc, [withChoice], [geometry]);
+    const doc = await PDFDocument.load(bytes);
+
+    expect(doc.getForm().getFields()).toHaveLength(0);
+  });
+});

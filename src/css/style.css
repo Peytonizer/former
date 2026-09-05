@@ -77,6 +77,117 @@ body {
   margin-bottom: 1.5rem;
 }
 
+.signatures {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  border: 1px solid var(--ink-soft);
+  border-radius: 8px;
+}
+
+.signatures h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+.signatures-note {
+  margin: 0 0 0.75rem;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}
+
+.signature-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.signature-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--ink-soft);
+  border-radius: 6px;
+  padding: 0.3rem 0.5rem;
+  background: var(--surface);
+}
+
+.signature-item img {
+  height: 28px;
+  width: auto;
+  max-width: 80px;
+  object-fit: contain;
+  background:
+    linear-gradient(45deg, #ddd 25%, transparent 25%) -4px 0/8px 8px,
+    linear-gradient(-45deg, #ddd 25%, transparent 25%) -4px 0/8px 8px;
+}
+
+.signature-item button {
+  border: none;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.signature-capture summary {
+  cursor: pointer;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+}
+
+.signature-canvas {
+  display: block;
+  border: 1px dashed var(--ink-soft);
+  border-radius: 6px;
+  background: var(--surface);
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.signature-capture-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
+.signature-capture-row input[type='text'] {
+  flex: 1;
+  padding: 0.3rem;
+  border: 1px solid var(--ink-soft);
+  border-radius: 4px;
+  font: inherit;
+}
+
+.signature-capture-row button,
+.signature-upload {
+  border: 1px solid var(--ink-soft);
+  border-radius: 6px;
+  background: var(--surface);
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.signature-upload {
+  display: inline-block;
+  margin-top: 0.5rem;
+}
+
+.signature-upload input {
+  display: block;
+}
+
+.signature-message {
+  min-height: 1.2em;
+  margin: 0.5rem 0 0;
+  color: var(--accent);
+  font-size: 0.85rem;
+}
+
 .picker {
   display: block;
   border: 1px dashed var(--ink-soft);

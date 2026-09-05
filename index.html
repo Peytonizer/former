@@ -36,6 +36,30 @@
         </p>
       </header>
 
+      <section class="signatures" aria-label="Saved signatures">
+        <h2>Signatures</h2>
+        <p class="signatures-note">
+          Saved here so you don't have to draw one every session — stored only in this browser.
+          Clear any of them at any time.
+        </p>
+        <div class="signature-list" data-signature-list></div>
+
+        <details class="signature-capture">
+          <summary>Draw or upload a new one</summary>
+          <canvas class="signature-canvas" data-signature-canvas width="320" height="120"></canvas>
+          <div class="signature-capture-row">
+            <button type="button" data-signature-clear-pad>Clear drawing</button>
+            <input type="text" data-signature-label placeholder="Label — e.g. Signature, Initials" />
+            <button type="button" data-signature-save-drawn>Save drawing</button>
+          </div>
+          <label class="signature-upload">
+            <span>…or upload a PNG or JPEG</span>
+            <input type="file" accept="image/png,image/jpeg,.png,.jpg,.jpeg" data-signature-upload />
+          </label>
+          <p class="signature-message" data-signature-message role="status" aria-live="polite"></p>
+        </details>
+      </section>
+
       <main id="app">
         <section class="loader">
           <label class="picker" data-picker>
@@ -131,9 +155,20 @@
               <input type="number" min="0" step="1" data-prop-fontsize />
             </label>
 
-            <p class="prop-note" data-prop-row-signature hidden>
-              Signature placements aren't editable here yet — that lands at build stage 12.
-            </p>
+            <div data-prop-row-signature hidden>
+              <label class="field">
+                <span>Which signature</span>
+                <select data-prop-signature-select></select>
+              </label>
+              <label class="field field-checkbox">
+                <input type="checkbox" data-prop-as-text-in-template />
+                <span>In a template export, let the recipient type their name here</span>
+              </label>
+              <p class="prop-note">
+                A signature is never a form field — filled mode draws the image; layered never
+                includes it; template does only if the box above is ticked.
+              </p>
+            </div>
           </aside>
         </section>
       </main>

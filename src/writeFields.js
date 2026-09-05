@@ -25,11 +25,19 @@
  *   rotated page tabs sideways. Widgets are added in field-then-placement order as the placement
  *   list is walked, which is not the visual order, so this is a real reorder, not a formality.
  *
- * Text, check, dropdown and radio are all handled (stage 10); signature is not — SPEC.md is
- * explicit that a signature placement never becomes a signature field, so it is handled entirely
- * separately, per the `asTextInTemplate` choice, at stage 12. An unnamed placement is skipped,
- * not an error: naming is required in these two modes (SPEC.md, "Names, and sharing a value"),
- * but the properties panel that would let a user type one in doesn't fully exist yet either.
+ * Text, check, dropdown and radio are all handled (stage 10); signature is not, in the sense that
+ * there is no signature field type — SPEC.md is explicit that a signature can never become one.
+ * What a signature placement becomes is mode-dependent and decided once, up front, by
+ * `resolveSignatures`: in **template** mode, `asTextInTemplate: true` turns it into an ordinary
+ * text placement (so it flows through every rule above unchanged) and `false` drops it entirely;
+ * in **layered** mode it is always dropped — SPEC.md's "Signatures" describes this choice only
+ * for template, and a signature is fundamentally something *you* already provided, not a value
+ * the recipient a layered export is meant for would fill in themselves. Either way, the actual
+ * signature *image* is never drawn here — only `writeFilled.js` can place an image at all.
+ *
+ * An unnamed placement is skipped, not an error: naming is required in these two modes (SPEC.md,
+ * "Names, and sharing a value"), but the properties panel that would let a user type one in
+ * doesn't fully exist yet either.
  *
  * A radio group is one field with several widgets, same as text, but each widget represents a
  * different **option** rather than a repeat of the same value — `addOptionToPage(optionValue,
@@ -127,6 +135,24 @@ function sortAnnotsByTabOrder(pdfDoc, pages, widgetsByPage) {
 }
 
 /**
+ * Turn each signature placement into whatever it becomes in this mode, before anything else
+ * runs. Layered drops every one; template turns `asTextInTemplate: true` into a plain text
+ * placement (empty value — nothing is ever drawn here) and drops the rest.
+ *
+ * @param {import('./placements.js').Placement[]} placements
+ * @param {boolean} setValues  true for layered, false for template
+ */
+function resolveSignatures(placements, setValues) {
+  return placements
+    .map((p) => {
+      if (p.type !== 'signature') return p;
+      if (setValues) return null; // layered: never a field, never a substitute
+      return p.asTextInTemplate ? { ...p, type: 'text', value: '' } : null;
+    })
+    .filter(Boolean);
+}
+
+/**
  * The shared writer. Creates one field per name, adds a widget per placement sharing that name,
  * sorts each page's tab order, then generates appearances and sets `NeedAppearances` — both are
  * needed, because a field with neither looks like an empty box in macOS Preview in particular.
@@ -142,7 +168,7 @@ async function writeFields(pdfDoc, placements, pageGeometries, { setValues }) {
   const form = pdfDoc.getForm();
   const pages = pdfDoc.getPages();
 
-  const named = placements.filter((p) => p.type !== 'signature' && p.name);
+  const named = resolveSignatures(placements, setValues).filter((p) => p.name);
   /** @type {Map<number, {ref: import('pdf-lib').PDFRef, placement: import('./placements.js').Placement}[]>} */
   const widgetsByPage = new Map();
 
