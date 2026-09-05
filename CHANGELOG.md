@@ -55,3 +55,9 @@ headings are cut when a meaningful chunk of work lands, not on every commit.
   user space would still look right and be wrong). NeedAppearances and every widget's `/DA` and
   `/AP` appearance stream checked structurally in a Node probe, since this sandbox has no
   screen-recording permission for the macOS Preview open the build order calls for.
+- Build stage 9: the cross-writer agreement test. For an identical text placement at every
+  rotation, `writeFilled`'s drawn anchor and `writeFields`' widget anchor are asserted to agree
+  exactly, by spying on both `page.drawText` and `PDFTextField.prototype.addToPage` rather than
+  re-deriving the expected numbers — this guards against the two drifting apart in a future edit,
+  which neither writer's own test would catch on its own. They agree, so this stage needed no
+  planning-level escalation.
