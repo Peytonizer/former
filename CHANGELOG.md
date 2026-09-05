@@ -5,6 +5,16 @@ headings are cut when a meaningful chunk of work lands, not on every commit.
 
 ## Unreleased
 
+- A slim navigation bar across the top links former to the other strata sites — the ACT
+  legislation reader and lodger. It is generated from a manifest in the shared `strata-kit`
+  repo and inlined into the page at build time, so it costs no network request and the CSP is
+  untouched.
+- The palette moves out of this repo into `strata-kit`, carried here as a submodule at
+  `vendor/strata-kit` and imported. It was a hand-kept copy of lodger's and had drifted: the
+  page ground was `#faf6f0` where the specification says `#fbf7f4`, so the background is now a
+  shade warmer and matches its sibling exactly. The placement-edge colours stay here, since
+  they are former's alone.
+
 - Project scaffolded: README, changelog, licence and the ignore rules, ahead of the first
   build stage.
 - Build stage 1: `package.json` (Vite, Vitest, oxlint, pdf-lib, pdfjs-dist, the self-hosted
