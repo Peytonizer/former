@@ -1,0 +1,77 @@
+/*
+ * Palette tokens and components are copied from lodger's src/css/style.css, not imported — see
+ * CLAUDE.md, "Relationship to lodger". Not yet carried across: this is the stage 1 scaffold,
+ * enough to render a shell. The full macaron palette and placement hues land at build stage 17
+ * ("Styling and copy"), copied from ~/git/workbench/lodger/SPEC.md, "Palette and type".
+ */
+
+:root {
+  --ground: #faf6f0;
+  --surface: #ffffff;
+  --ink: #2a1f28;
+  --ink-soft: #6b5c66;
+  --accent: #b33a5f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: system-ui, sans-serif;
+}
+
+.shell {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 3rem;
+}
+
+.masthead {
+  margin-bottom: 2rem;
+}
+
+.wordmark {
+  margin: 0 0 0.5rem;
+  font-size: 2rem;
+}
+
+.wordmark .dot {
+  color: var(--accent);
+}
+
+.tagline {
+  margin: 0 0 1rem;
+  color: var(--ink-soft);
+  max-width: 38rem;
+}
+
+.privacy-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.privacy-line svg {
+  flex: none;
+  color: var(--accent);
+}
+
+.placeholder {
+  color: var(--ink-soft);
+  font-style: italic;
+}
+
+.colophon {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 3rem;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}
