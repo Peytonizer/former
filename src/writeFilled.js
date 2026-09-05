@@ -98,9 +98,12 @@ async function drawSignature(pdfDoc, page, geometry, rect, bytes) {
   // for a Uint8Array that owns its buffer outright; a view into a larger buffer (which
   // `fs.readFileSync`/IndexedDB can both legitimately hand back, and did in CI, where this threw
   // "SOI not found in JPEG" against bytes that are a correct JPEG on disk) gets read from the
-  // wrong offset. `.slice()` copies into a fresh, byte-0-based buffer, working around a real bug
-  // in an unmaintained dependency rather than in our own code — see CLAUDE.md, "Dependencies".
-  const safeBytes = bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength ? bytes : bytes.slice();
+  // wrong offset. `new Uint8Array(bytes)` copies into a fresh, byte-0-based buffer — deliberately
+  // not `bytes.slice()`, which on a Node `Buffer` is overridden to behave like `subarray()` for
+  // legacy reasons and returns a *view* over the same memory, not a copy, so it would silently
+  // leave the same wrong byteOffset in place. This works around a real bug in an unmaintained
+  // dependency rather than in our own code — see CLAUDE.md, "Dependencies".
+  const safeBytes = bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength ? bytes : new Uint8Array(bytes);
   const image = mimeType === 'image/png' ? await pdfDoc.embedPng(safeBytes) : await pdfDoc.embedJpg(safeBytes);
   const anchor = userFromVisual(geometry, rect.x, rect.y);
   page.drawImage(image, {

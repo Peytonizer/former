@@ -251,36 +251,31 @@ describe('writeFilled — signatures (build stage 12)', () => {
     const spy = vi.spyOn(pdfDoc.getPages()[0], 'drawImage');
     const placement = createPlacement({ page: 0, type: 'signature', rect: { x: 60, y: 40, w: 120, h: 40 } });
     placement.imageId = 'sig-jpg';
-    const bytes = fixture('sig.jpg');
-    // Temporary diagnostic for the CI-only "SOI not found in JPEG" failure — remove once
-    // understood. Dumps exactly what this environment's readFileSync actually handed back.
-    console.error('[diag]', JSON.stringify({
-      byteOffset: bytes.byteOffset,
-      byteLength: bytes.byteLength,
-      bufferByteLength: bytes.buffer.byteLength,
-      first8: Buffer.from(bytes.subarray(0, 8)).toString('hex'),
-      isBuffer: Buffer.isBuffer(bytes),
-      ctor: bytes.constructor.name,
-    }));
 
-    await writeFilled(pdfDoc, [placement], geometriesOf(pdfDoc), new Map([['sig-jpg', bytes]]));
+    await writeFilled(pdfDoc, [placement], geometriesOf(pdfDoc), new Map([['sig-jpg', fixture('sig.jpg')]]));
 
     expect(spy).toHaveBeenCalledTimes(1);
   });
 
-  it('accepts a JPEG signature that arrives as a view into a larger buffer', async () => {
+  it('accepts a JPEG signature that arrives as a Buffer view into a larger one', async () => {
     // Regression test: pdf-lib's JpegEmbedder reads the SOI marker via
     // `new DataView(imageData.buffer)` — the *whole* underlying ArrayBuffer, ignoring
-    // byteOffset/byteLength. `fs.readFileSync` never triggers this locally (it hands back a
-    // buffer that owns its ArrayBuffer outright), but it did on the Linux CI runner, throwing
-    // "SOI not found in JPEG" against bytes that are demonstrably a correct JPEG on disk. This
-    // reproduces the same buffer shape directly rather than depending on how any particular
-    // platform's allocator happens to lay things out.
+    // byteOffset/byteLength. `fs.readFileSync` returned exactly this shape on the Linux CI
+    // runner (confirmed by a throwaway diagnostic: byteOffset 56888 into a 65536-byte pool
+    // buffer) though never locally, and threw "SOI not found in JPEG" against bytes that are
+    // demonstrably a correct JPEG on disk.
+    //
+    // Built with Buffer methods deliberately, not `new Uint8Array(raw.buffer)`-style slicing:
+    // an early version of this test built a plain `Uint8Array` view and it passed even before
+    // the real fix existed, because `Buffer.prototype.slice()`/`subarray()` — what the fix
+    // actually has to defend against — behave differently from a plain typed array's, and only
+    // a real `Buffer` exercises that. `Buffer.concat` then `.subarray()` reproduces the same
+    // Buffer-backed, non-zero-byteOffset shape `fs.readFileSync` produced in CI.
     const raw = fixture('sig.jpg');
-    const padded = new Uint8Array(raw.byteLength + 16);
-    padded.set(raw, 16);
+    const padded = Buffer.concat([Buffer.alloc(16), raw]);
     const view = padded.subarray(16);
     expect(view.byteOffset).toBe(16);
+    expect(Buffer.isBuffer(view)).toBe(true);
 
     const pdfDoc = await PDFDocument.load(fixture('flat-a4.pdf'));
     const spy = vi.spyOn(pdfDoc.getPages()[0], 'drawImage');
