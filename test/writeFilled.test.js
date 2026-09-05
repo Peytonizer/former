@@ -251,8 +251,19 @@ describe('writeFilled — signatures (build stage 12)', () => {
     const spy = vi.spyOn(pdfDoc.getPages()[0], 'drawImage');
     const placement = createPlacement({ page: 0, type: 'signature', rect: { x: 60, y: 40, w: 120, h: 40 } });
     placement.imageId = 'sig-jpg';
+    const bytes = fixture('sig.jpg');
+    // Temporary diagnostic for the CI-only "SOI not found in JPEG" failure — remove once
+    // understood. Dumps exactly what this environment's readFileSync actually handed back.
+    console.error('[diag]', JSON.stringify({
+      byteOffset: bytes.byteOffset,
+      byteLength: bytes.byteLength,
+      bufferByteLength: bytes.buffer.byteLength,
+      first8: Buffer.from(bytes.subarray(0, 8)).toString('hex'),
+      isBuffer: Buffer.isBuffer(bytes),
+      ctor: bytes.constructor.name,
+    }));
 
-    await writeFilled(pdfDoc, [placement], geometriesOf(pdfDoc), new Map([['sig-jpg', fixture('sig.jpg')]]));
+    await writeFilled(pdfDoc, [placement], geometriesOf(pdfDoc), new Map([['sig-jpg', bytes]]));
 
     expect(spy).toHaveBeenCalledTimes(1);
   });
