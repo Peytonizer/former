@@ -187,58 +187,69 @@ async function openFile(file) {
   setMessage('');
   els.pickerValue.textContent = file.name;
 
-  const bytes = new Uint8Array(await file.arrayBuffer());
+  // Everything below can throw — pdf.js starting its worker included — and until this wrapped
+  // the whole thing, a failure anywhere in here left the loader on screen with no explanation:
+  // the promise from the `input` "change" listener just rejected unhandled. Surfacing it here,
+  // even generically, turns a silent stall into something the user (and us, from what they
+  // report back) can actually read and act on.
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer());
 
-  const result = await loadDocument(bytes);
-  if (!result.ok) {
-    const message = REFUSAL_MESSAGES[result.reason];
-    setMessage(typeof message === 'function' ? message(result) : message);
+    const result = await loadDocument(bytes);
+    if (!result.ok) {
+      const message = REFUSAL_MESSAGES[result.reason];
+      setMessage(typeof message === 'function' ? message(result) : message);
+      els.viewer.hidden = true;
+      els.exportFilled.disabled = true;
+      els.exportLayered.disabled = true;
+      els.exportTemplate.disabled = true;
+      els.previewFilled.disabled = true;
+      els.previewLayered.disabled = true;
+      els.previewTemplate.disabled = true;
+      return;
+    }
+
+    if (current) await current.task.destroy();
+    await closePreview();
+    current = await openForRendering(bytes);
+    sourceBytes = bytes;
+    sourceFileName = file.name;
+    pageGeometries = result.pages;
+    placements = [];
+    properties.select(null);
+    pageIndex = 0;
+    zoomIndex = DEFAULT_ZOOM_INDEX;
+    els.exportFilled.disabled = false;
+    els.exportLayered.disabled = false;
+    els.exportTemplate.disabled = false;
+    els.previewFilled.disabled = false;
+    els.previewLayered.disabled = false;
+    els.previewTemplate.disabled = false;
+
+    // Detected via the same pdf-lib document doc.js already loaded to read page geometry — a
+    // separate parse isn't needed just to ask getForm().getFields(). SPEC.md, "Existing AcroForm
+    // fields": offer to import rather than silently drawing over a form that already works.
+    if (hasExistingFields(result.pdfDoc)) {
+      pendingImportDoc = result.pdfDoc;
+      const count = result.pdfDoc.getForm().getFields().length;
+      els.importPromptText.textContent = `This PDF already has ${count} form field${count === 1 ? '' : 's'}. Import them as placements you can edit, or start blank and leave them alone.`;
+      els.importPrompt.hidden = false;
+    } else {
+      pendingImportDoc = null;
+      els.importPrompt.hidden = true;
+    }
+
+    thumbnailButtons = await buildThumbnailRail(current.pdfJsDoc, els.thumbnails, {
+      onSelect: (index) => showPage(index),
+    });
+
+    els.viewer.hidden = false;
+    await showPage(0);
+  } catch (err) {
+    console.error('Failed to open PDF:', err);
+    setMessage(`Something went wrong opening this PDF in this browser: ${err.message ?? err}`);
     els.viewer.hidden = true;
-    els.exportFilled.disabled = true;
-    els.exportLayered.disabled = true;
-    els.exportTemplate.disabled = true;
-    els.previewFilled.disabled = true;
-    els.previewLayered.disabled = true;
-    els.previewTemplate.disabled = true;
-    return;
   }
-
-  if (current) await current.task.destroy();
-  await closePreview();
-  current = await openForRendering(bytes);
-  sourceBytes = bytes;
-  sourceFileName = file.name;
-  pageGeometries = result.pages;
-  placements = [];
-  properties.select(null);
-  pageIndex = 0;
-  zoomIndex = DEFAULT_ZOOM_INDEX;
-  els.exportFilled.disabled = false;
-  els.exportLayered.disabled = false;
-  els.exportTemplate.disabled = false;
-  els.previewFilled.disabled = false;
-  els.previewLayered.disabled = false;
-  els.previewTemplate.disabled = false;
-
-  // Detected via the same pdf-lib document doc.js already loaded to read page geometry — a
-  // separate parse isn't needed just to ask getForm().getFields(). SPEC.md, "Existing AcroForm
-  // fields": offer to import rather than silently drawing over a form that already works.
-  if (hasExistingFields(result.pdfDoc)) {
-    pendingImportDoc = result.pdfDoc;
-    const count = result.pdfDoc.getForm().getFields().length;
-    els.importPromptText.textContent = `This PDF already has ${count} form field${count === 1 ? '' : 's'}. Import them as placements you can edit, or start blank and leave them alone.`;
-    els.importPrompt.hidden = false;
-  } else {
-    pendingImportDoc = null;
-    els.importPrompt.hidden = true;
-  }
-
-  thumbnailButtons = await buildThumbnailRail(current.pdfJsDoc, els.thumbnails, {
-    onSelect: (index) => showPage(index),
-  });
-
-  els.viewer.hidden = false;
-  await showPage(0);
 }
 
 async function showPage(index) {
