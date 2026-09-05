@@ -25,3 +25,14 @@ headings are cut when a meaningful chunk of work lands, not on every commit.
 - Build stage 5: `render.js` wires up pdf.js — one page on screen, a thumbnail rail, zoom and page
   navigation — with `main.js` driving it from `doc.js`'s load result. Verified in a real browser
   that a fixture rectangle lands at the same visual position across all four page rotations.
+  Fixed a real bug found in the process: a `hidden` viewer stayed visible after a refusal,
+  because an author stylesheet's `display: grid` always outranks the user-agent `[hidden]` rule
+  regardless of selector specificity.
+- Build stage 6: the editor surface (`editor/canvas.js`) — drag out a rectangle to create a
+  placement of the selected type, select, move, resize from a corner handle, duplicate and
+  delete, mouse only. Placements render as absolutely-positioned DOM elements over the page
+  canvas, per SPEC.md's "Preview and the editor surface". Fixed two more bugs found while
+  verifying in a browser: the editor silently reverted to the Select tool after placing
+  something while the toolbar kept the create tool's button highlighted, desyncing the visible
+  state from the actual one, and the toolbar overflowed unreachably off-screen at ordinary
+  widths for want of `flex-wrap`.

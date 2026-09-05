@@ -58,8 +58,22 @@
               <span data-zoom-label></span>
               <button type="button" data-zoom-in aria-label="Zoom in">+</button>
             </div>
+            <div class="tool-toolbar" data-tools role="radiogroup" aria-label="Placement type">
+              <button type="button" class="tool active" data-tool="select" aria-pressed="true">Select</button>
+              <button type="button" class="tool" data-tool="text" aria-pressed="false">Text</button>
+              <button type="button" class="tool" data-tool="check" aria-pressed="false">Tick</button>
+              <button type="button" class="tool" data-tool="signature" aria-pressed="false">Signature</button>
+              <button type="button" class="tool" data-tool="dropdown" aria-pressed="false">Dropdown</button>
+              <button type="button" class="tool" data-tool="radio" aria-pressed="false">Radio</button>
+              <span class="toolbar-gap" aria-hidden="true"></span>
+              <button type="button" data-duplicate-placement disabled>Duplicate</button>
+              <button type="button" data-delete-placement disabled>Delete</button>
+            </div>
             <div class="page-canvas-wrap">
-              <canvas data-page-canvas></canvas>
+              <div class="page-stage" data-page-stage>
+                <canvas data-page-canvas></canvas>
+                <div class="placement-overlay" data-overlay></div>
+              </div>
             </div>
           </div>
         </section>
