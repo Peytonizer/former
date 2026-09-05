@@ -208,3 +208,8 @@ headings are cut when a meaningful chunk of work lands, not on every commit.
   true locally, not true on the CI runner, where `Buffer.concat`'s own result was itself a pool
   slice with a non-zero base. Loosened to asserting only what the test actually needs: a non-zero
   offset, not a specific one.
+- A light/dark toggle, copied from lodger's own: a button in the masthead flips `data-theme` on
+  `<html>` between the two palettes regardless of the system setting. Not remembered between
+  visits — former's whole privacy claim is that nothing is persisted except a signature the user
+  explicitly saves, and a toggle setting isn't worth qualifying that for — so the page follows
+  the system preference again on every reload until switched for that visit.

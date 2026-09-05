@@ -96,6 +96,33 @@ const els = {
 
 if (els.build) els.build.textContent = import.meta.env.VITE_COMMIT_SHA;
 
+/**
+ * The light/dark toggle, copied from lodger's own (see CLAUDE.md, "Relationship to lodger").
+ *
+ * The choice is not remembered between sessions, deliberately: former's whole privacy claim is
+ * that nothing is persisted except a signature the user explicitly saves, and a toggle setting
+ * is not worth qualifying that promise for. The page follows the system preference again on
+ * every reload until someone says otherwise for that visit.
+ */
+{
+  const toggle = document.querySelector('[data-theme-toggle]');
+  const label = document.querySelector('[data-theme-label]');
+  const systemDark = globalThis.matchMedia?.('(prefers-color-scheme: dark)');
+  let dark = systemDark?.matches ?? false;
+
+  const apply = () => {
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    toggle.setAttribute('aria-pressed', String(dark));
+    label.textContent = dark ? 'Dark' : 'Light';
+  };
+
+  toggle.addEventListener('click', () => {
+    dark = !dark;
+    apply();
+  });
+  apply();
+}
+
 // An honest size estimate up front (SPEC.md, "Fonts") — the full font embed layered and
 // template both need is several hundred kilobytes, and a user who doesn't know why would
 // otherwise assume the export is broken. Filled mode subsets, so it isn't quoted here.

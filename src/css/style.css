@@ -59,10 +59,12 @@
 }
 
 /*
- * A mixin-by-duplication rather than a media query alone, so a future manual theme toggle can
- * stamp `data-theme` on `<html>` and win in both directions. former has no toggle in v1 — this
- * block only ever engages from the system setting — but the selector is written the same way as
- * lodger's so the two stay easy to compare.
+ * A mixin-by-duplication rather than a media query alone: the toggle stamps `data-theme` on
+ * `<html>`, and it has to win in both directions — a light choice on a dark system as much as a
+ * dark choice on a light one. The media-query block below covers "system says dark and the
+ * toggle hasn't overridden it"; the plain `[data-theme='dark']` block after it covers "the
+ * toggle says dark regardless of the system". There's no matching `[data-theme='light']` block
+ * because the base `:root` above already is the light theme.
  */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
@@ -96,6 +98,35 @@
   }
 }
 
+:root[data-theme='dark'] {
+  --ground: #1e1922;
+  --surface: #29222e;
+  --surface-sunk: #171319;
+  --border: #3a3040;
+  --border-strong: #4b3f52;
+
+  --ink: #f5eff3; /* 15.2:1 on ground */
+  --ink-soft: #c6b8c8; /* 9.1:1 */
+  --ink-faint: #a295a6; /* 6.1:1 */
+
+  --accent: #b33a5f;
+  --accent-text: #f58ba8; /* 7.5:1 */
+  --accent-hover: #c8446d;
+  --warn: #e8b978; /* 9.6:1 */
+  --refuse: #f2879f; /* 7.2:1 */
+  --ok: #7ed2a6; /* 9.6:1 */
+
+  --pistachio: #3e5f51;
+  --rose: #5e3746;
+  --lavender: #463b5c;
+  --lemon: #5c5334;
+  --caramel: #5a4536;
+  --bleuet: #37485e;
+
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 20%), 0 6px 20px rgb(0 0 0 / 24%);
+  --shadow-lift: 0 2px 4px rgb(0 0 0 / 24%), 0 12px 32px rgb(0 0 0 / 32%);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -125,7 +156,49 @@ body {
 }
 
 .masthead {
+  position: relative;
   margin-bottom: 2rem;
+  padding-right: 120px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.theme-toggle {
+  position: absolute;
+  top: 4px;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  cursor: pointer;
+  box-shadow: var(--shadow-soft);
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.theme-toggle:hover {
+  color: var(--ink);
+  border-color: var(--border-strong);
+}
+
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .wordmark {
