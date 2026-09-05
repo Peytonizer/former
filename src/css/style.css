@@ -159,10 +159,11 @@ body {
   padding: 2.5rem 1.5rem 3rem;
 }
 
+/* Left-aligned, not centred: the shell is wide enough for the viewer's full grid, and centring
+ * a narrower block within it would float the masthead/signatures/picker away from the viewer's
+ * left edge below — flush-left keeps everything lining up down the page instead. */
 .narrow {
   max-width: 44rem;
-  margin-left: auto;
-  margin-right: auto;
 }
 
 .masthead {
