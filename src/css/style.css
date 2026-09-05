@@ -17,6 +17,16 @@
   box-sizing: border-box;
 }
 
+/*
+ * Without this, `.viewer[hidden]` stays visible: an author stylesheet's `display: grid` beats
+ * the user-agent stylesheet's `[hidden] { display: none }` regardless of selector specificity,
+ * because normal author rules always outrank normal user-agent rules in the cascade. Any class
+ * that sets its own `display` needs this to make the `hidden` attribute actually hide it.
+ */
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   background: var(--ground);
@@ -63,9 +73,117 @@ body {
   color: var(--accent);
 }
 
-.placeholder {
+.loader {
+  margin-bottom: 1.5rem;
+}
+
+.picker {
+  display: block;
+  border: 1px dashed var(--ink-soft);
+  border-radius: 8px;
+  padding: 1rem;
+  cursor: pointer;
+}
+
+.picker-label {
+  display: block;
+  font-weight: 600;
+}
+
+.picker-value {
+  display: block;
   color: var(--ink-soft);
-  font-style: italic;
+  font-size: 0.9rem;
+}
+
+.picker input[type='file'] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+}
+
+.messages {
+  min-height: 1.2em;
+  margin: 0.5rem 0 0;
+  color: var(--accent);
+  font-size: 0.9rem;
+}
+
+.viewer {
+  display: grid;
+  grid-template-columns: 8rem 1fr;
+  gap: 1rem;
+}
+
+.thumbnails {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 32rem;
+  overflow-y: auto;
+}
+
+.thumbnail {
+  display: block;
+  padding: 2px;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+}
+
+.thumbnail canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 15%);
+}
+
+.thumbnail.active {
+  border-color: var(--accent);
+}
+
+.stage {
+  min-width: 0;
+}
+
+.stage-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.toolbar-gap {
+  flex: 1;
+}
+
+.stage-toolbar button {
+  border: 1px solid var(--ink-soft);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  padding: 0.25rem 0.6rem;
+}
+
+.page-canvas-wrap {
+  --surface-sunk: #efe7dd;
+
+  background: var(--surface-sunk);
+  border: 1px solid var(--ink-soft);
+  padding: 1rem;
+  overflow: auto;
+  max-height: 70vh;
+}
+
+.page-canvas-wrap canvas {
+  display: block;
+  margin: 0 auto;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 20%);
 }
 
 .colophon {

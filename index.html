@@ -37,7 +37,32 @@
       </header>
 
       <main id="app">
-        <p class="placeholder">The editor is not built yet — this is the project scaffold.</p>
+        <section class="loader">
+          <label class="picker" data-picker>
+            <span class="picker-label">Open a PDF</span>
+            <span class="picker-value" data-value>Choose a file, or drop one here</span>
+            <input type="file" accept="application/pdf,.pdf" data-input />
+          </label>
+          <p class="messages" data-messages role="status" aria-live="polite"></p>
+        </section>
+
+        <section class="viewer" data-viewer hidden>
+          <aside class="thumbnails" data-thumbnails aria-label="Pages"></aside>
+          <div class="stage">
+            <div class="stage-toolbar">
+              <button type="button" data-prev-page aria-label="Previous page">‹</button>
+              <span data-page-label></span>
+              <button type="button" data-next-page aria-label="Next page">›</button>
+              <span class="toolbar-gap" aria-hidden="true"></span>
+              <button type="button" data-zoom-out aria-label="Zoom out">−</button>
+              <span data-zoom-label></span>
+              <button type="button" data-zoom-in aria-label="Zoom in">+</button>
+            </div>
+            <div class="page-canvas-wrap">
+              <canvas data-page-canvas></canvas>
+            </div>
+          </div>
+        </section>
       </main>
 
       <footer class="colophon">
