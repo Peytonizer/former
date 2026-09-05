@@ -158,3 +158,21 @@ headings are cut when a meaningful chunk of work lands, not on every commit.
   to land at the wrong page coordinate for anything below the fold once the stage 10-15 panels
   pushed the canvas down the page, which is a test-environment limitation and not a finding about
   the app.
+- Build stage 17: the full macaron palette, copied from lodger's light and dark tables rather
+  than the stage 1-16 placeholder tokens, plus the self-hosted type — Fraunces for the wordmark
+  and headings, DM Sans for everything else, DM Mono for page counts, zoom, file sizes and the
+  build hash, all bundled through `@fontsource` rather than a font CDN, which the CSP already
+  refuses. Every card, button and control now uses lodger's own radius and shadow tokens instead
+  of ad hoc values, and borders that mark a boundary use `--border`/`--border-strong` rather than
+  reusing the ink colour. Placement fills moved from an ad hoc 35% to the specified 12% opacity
+  so the page underneath stays legible, and each placement now carries a small type-glyph badge
+  in its top-left corner in its own edge colour — `Aa`/`✓`/`✎`/`▾`/`◉` for text/check/signature/
+  dropdown/radio — so type is never told apart by colour alone, per SPEC.md's own rule. Checked
+  against a fixture page at 100% zoom in a real browser: all five types read clearly together,
+  selection's accent ring stays visually distinct from every type's own edge colour, and the dark
+  theme (which this sandbox defaults to) renders every surface, control and placement correctly
+  from the same tokens with no separate dark-mode styling needed anywhere. Fixed a real layout
+  bug found in the process, pre-dating this stage: the export row's note text had no way to wrap
+  onto its own line, so it collapsed into an unreadably narrow column once three buttons were
+  present — given `flex-wrap` and a full-width `flex-basis`, matching the pattern the sidecar row
+  already used for its own note.

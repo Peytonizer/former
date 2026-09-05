@@ -34,6 +34,12 @@ const DEFAULT_CREATE_RECT = { x: 40, w: 120, h: 24 };
 
 const HANDLE_CORNERS = ['nw', 'ne', 'sw', 'se'];
 
+/** A one- or two-character badge per placement type, shown in the top-left corner (SPEC.md,
+ * "What former adds: the placement hues" — colour is never the only signal distinguishing
+ * types, so this glyph carries the same distinction as the edge colour, redundantly and on
+ * purpose). */
+const TYPE_GLYPHS = { text: 'Aa', check: '✓', signature: '✎', dropdown: '▾', radio: '◉' };
+
 /** Visual point rect -> CSS pixel rect, given the page's visual height and the current zoom. */
 export function cssFromVisual(rect, visualHeight, scale) {
   return {
@@ -127,6 +133,12 @@ export function createEditorCanvas({
       el.setAttribute('aria-label', accessibleLabel(p));
       const { left, top, width, height } = cssFromVisual(p.rect, visualHeight, scale);
       Object.assign(el.style, { left: `${left}px`, top: `${top}px`, width: `${width}px`, height: `${height}px` });
+
+      const glyph = document.createElement('span');
+      glyph.className = 'placement-glyph';
+      glyph.textContent = TYPE_GLYPHS[p.type] ?? '?';
+      glyph.setAttribute('aria-hidden', 'true');
+      el.append(glyph);
 
       if (p.name) {
         const label = document.createElement('span');

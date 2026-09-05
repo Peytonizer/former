@@ -1,6 +1,16 @@
 // Entry point — wires the UI to the pipeline: doc.js, render.js and, from this stage, the
 // editor overlay in editor/canvas.js. Placements.js's placement list is the single source of
 // document state (`placements`, below); every other piece of state here is transient UI state.
+//
+// The three typefaces are self-hosted via @fontsource — never a font CDN link, which the CSP
+// blocks outright and which SPEC.md rules out for the same privacy reason as every other network
+// request. Weights are limited to what the UI actually sets (see style.css's --font-* uses)
+// rather than importing every cut Fraunces Variable ships, to keep the bundle down.
+import '@fontsource-variable/fraunces/full.css';
+import '@fontsource/dm-sans/400.css';
+import '@fontsource/dm-sans/600.css';
+import '@fontsource/dm-mono/400.css';
+
 import { PDFDocument } from 'pdf-lib';
 
 import { hasExistingFields, importExistingFields } from './acroform.js';
