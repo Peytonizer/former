@@ -1,13 +1,15 @@
 /*
   former — layout and components.
 
-  The palette, the type stack and the family navigation bar live in strata-kit and are imported
-  below; what remains in this file is former's own. Until now this file carried its own copy of
-  lodger's tokens, kept in step by hand — and already out of step, its --ground having drifted
-  a shade off the specified value. There is one canonical copy now.
+  The palette and the type stack live in strata-kit and are imported below; what remains in
+  this file is former's own. Until now this file carried its own copy of lodger's tokens, kept
+  in step by hand — and already out of step, its --ground having drifted a shade off the
+  specified value. There is one canonical copy now.
 
   The kit is a git submodule, so the import is resolved and inlined by Vite at build time —
-  never fetched at runtime, which the app's Content-Security-Policy would refuse anyway.
+  never fetched at runtime, which the app's Content-Security-Policy would refuse anyway. The
+  kit's family navigation bar is not used here — only the strata hub carries it, so a menu
+  change doesn't mean rebuilding this app.
 
   The rule that keeps the pastel scheme readable: the macarons are surfaces, fills and borders,
   never text colours. Contrast ratios are recorded beside each token in the kit; the derivation

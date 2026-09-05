@@ -5,10 +5,10 @@ headings are cut when a meaningful chunk of work lands, not on every commit.
 
 ## Unreleased
 
-- A slim navigation bar across the top links former to the other strata sites — the ACT
-  legislation reader and lodger. It is generated from a manifest in the shared `strata-kit`
-  repo and inlined into the page at build time, so it costs no network request and the CSP is
-  untouched.
+- Removed the top navigation bar linking to the other strata sites, added and then dropped in
+  the same unreleased window: it meant rebuilding and redeploying this app every time the
+  family menu changed elsewhere. Only the strata hub carries the bar now; the palette import
+  below is unaffected.
 - The palette moves out of this repo into `strata-kit`, carried here as a submodule at
   `vendor/strata-kit` and imported. It was a hand-kept copy of lodger's and had drifted: the
   page ground was `#faf6f0` where the specification says `#fbf7f4`, so the background is now a
