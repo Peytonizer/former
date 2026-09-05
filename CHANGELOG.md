@@ -176,3 +176,13 @@ headings are cut when a meaningful chunk of work lands, not on every commit.
   onto its own line, so it collapsed into an unreadably narrow column once three buttons were
   present — given `flex-wrap` and a full-width `flex-basis`, matching the pattern the sidecar row
   already used for its own note.
+- Build stage 18, the last of the build order: `.github/workflows/deploy.yml`. Every push to
+  `main` now runs `npm ci`, `npm run lint`, `npm test` and `npm run build`, copies `CNAME` into
+  `dist/` (the Vite build doesn't know about it, and Pages needs it alongside `index.html` to
+  serve the custom domain), then deploys via `actions/deploy-pages` — the same shape as lodger's
+  own workflow, including Node 24 for the same reason: `pdfjs-dist` 6 and Vitest 5 both need
+  Node ≥22.13, and on Node 20 `npm ci` wedges indefinitely with an `EBADENGINE` warning instead
+  of failing outright. Repo Settings → Pages → Source needs setting to "GitHub Actions" once, by
+  hand, for this to take effect — not something a workflow file can do for itself. Ran every step
+  locally against the committed lockfile before pushing, since this is the one commit type this
+  project has no way to rehearse in CI first: it's what turns CI on.
