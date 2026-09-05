@@ -8,6 +8,7 @@ import { visualSize } from './geometry.js';
 import { loadDocument } from './doc.js';
 import { buildThumbnailRail, openForRendering, renderPageInto, setActiveThumbnail } from './render.js';
 import { writeFilled } from './writeFilled.js';
+import { writeLayered, writeTemplate } from './writeFields.js';
 
 const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3];
 const DEFAULT_ZOOM_INDEX = 2; // 1x
@@ -36,6 +37,8 @@ const els = {
   duplicate: document.querySelector('[data-duplicate-placement]'),
   deletePlacement: document.querySelector('[data-delete-placement]'),
   exportFilled: document.querySelector('[data-export-filled]'),
+  exportLayered: document.querySelector('[data-export-layered]'),
+  exportTemplate: document.querySelector('[data-export-template]'),
   build: document.querySelector('[data-build]'),
 };
 
@@ -86,6 +89,8 @@ async function openFile(file) {
     setMessage(typeof message === 'function' ? message(result) : message);
     els.viewer.hidden = true;
     els.exportFilled.disabled = true;
+    els.exportLayered.disabled = true;
+    els.exportTemplate.disabled = true;
     return;
   }
 
@@ -98,6 +103,8 @@ async function openFile(file) {
   pageIndex = 0;
   zoomIndex = DEFAULT_ZOOM_INDEX;
   els.exportFilled.disabled = false;
+  els.exportLayered.disabled = false;
+  els.exportTemplate.disabled = false;
 
   thumbnailButtons = await buildThumbnailRail(current.pdfJsDoc, els.thumbnails, {
     onSelect: (index) => showPage(index),
@@ -163,12 +170,14 @@ function downloadBytes(bytes, fileName) {
   URL.revokeObjectURL(url);
 }
 
-els.exportFilled.addEventListener('click', async () => {
+/** Every export re-parses a fresh document — see the comment on `sourceBytes` above. */
+async function withFreshDocument(writer, suffix) {
   if (!sourceBytes) return;
-  // A fresh document each export, not the one doc.js already loaded for geometry — writeFilled
-  // draws into pdfDoc in place, and reusing a mutated instance would double-draw on a second
-  // export after the placements changed.
   const pdfDoc = await PDFDocument.load(sourceBytes);
-  const bytes = await writeFilled(pdfDoc, placements, pageGeometries);
-  downloadBytes(bytes, derivedFileName(sourceFileName, 'filled'));
-});
+  const bytes = await writer(pdfDoc, placements, pageGeometries);
+  downloadBytes(bytes, derivedFileName(sourceFileName, suffix));
+}
+
+els.exportFilled.addEventListener('click', () => withFreshDocument(writeFilled, 'filled'));
+els.exportLayered.addEventListener('click', () => withFreshDocument(writeLayered, 'layered'));
+els.exportTemplate.addEventListener('click', () => withFreshDocument(writeTemplate, 'template'));

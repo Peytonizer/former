@@ -19,8 +19,9 @@
  * Only Liberation Sans **Regular** is bundled — the placement model has no bold/italic/font-
  * family field (SPEC.md, "The placement model"), so no other weight is ever drawn.
  *
- * Stage 7 needs only the filled writer's subset embed. The full subset-vs-full decision per
- * output mode, and auto-fit measurement, land at build stage 11.
+ * Filled mode embeds a subset (every character is known at export time); layered and template
+ * embed the font in full, because a recipient can type characters no subset would contain
+ * (SPEC.md, "Fonts"). Auto-fit measurement lands at build stage 11.
  */
 import fontkit from '@pdf-lib/fontkit';
 
@@ -56,4 +57,16 @@ function outputFontBytes() {
 export async function embedSubsetFont(pdfDoc) {
   pdfDoc.registerFontkit(fontkit);
   return pdfDoc.embedFont(outputFontBytes(), { subset: true });
+}
+
+/**
+ * Embed Liberation Sans in **full** in `pdfDoc`, for layered and template output. pdf-lib does
+ * not subset unless asked, so this is just `embedFont` with no options — the discipline is in
+ * *not* passing `{ subset: true }` here, not in any extra step.
+ *
+ * @param {import('pdf-lib').PDFDocument} pdfDoc
+ */
+export async function embedFullFont(pdfDoc) {
+  pdfDoc.registerFontkit(fontkit);
+  return pdfDoc.embedFont(outputFontBytes());
 }

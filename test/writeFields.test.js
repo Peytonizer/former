@@ -1,0 +1,159 @@
+import { PDFBool, PDFDocument, PDFName } from 'pdf-lib';
+import { describe, expect, it } from 'vitest';
+
+import { createPlacement, updatePlacement } from '../src/placements.js';
+import { writeLayered, writeTemplate } from '../src/writeFields.js';
+
+/** A single 595x842 page at the given rotation, with no other content. */
+async function blankPage(rotate) {
+  const pdfDoc = await PDFDocument.create();
+  const page = pdfDoc.addPage([595, 842]);
+  if (rotate) page.setRotation({ type: 'degrees', angle: rotate });
+  const geometry = { x0: 0, y0: 0, w: 595, h: 842, rotate };
+  return { pdfDoc, geometry };
+}
+
+function named(placement, name) {
+  return updatePlacement([placement], placement.id, { name })[0];
+}
+
+async function widgetRectOf(bytes) {
+  const doc = await PDFDocument.load(bytes);
+  const form = doc.getForm();
+  const [widget] = form.getFields()[0].acroField.getWidgets();
+  return widget.getRectangle();
+}
+
+describe('writeFields — the widget rectangle rule', () => {
+  // SPEC.md's verified table: a 120x20 visual box, visual bottom-left (100, 50), on a 595x842
+  // page, at each of the four rotations.
+  const cases = [
+    { rotate: 0, rect: { x: 100, y: 50, w: 120, h: 20 } },
+    { rotate: 90, rect: { x: 525, y: 100, w: 20, h: 120 } },
+    { rotate: 180, rect: { x: 375, y: 772, w: 120, h: 20 } },
+    { rotate: 270, rect: { x: 50, y: 622, w: 20, h: 120 } },
+  ];
+
+  for (const { rotate, rect } of cases) {
+    it(`produces the documented /Rect at /Rotate ${rotate}`, async () => {
+      const { pdfDoc, geometry } = await blankPage(rotate);
+      const placement = named(
+        createPlacement({ page: 0, type: 'text', rect: { x: 100, y: 50, w: 120, h: 20 } }),
+        'field',
+      );
+
+      const bytes = await writeTemplate(pdfDoc, [placement], [geometry]);
+      const found = await widgetRectOf(bytes);
+
+      expect(found).toEqual({ x: rect.x, y: rect.y, width: rect.w, height: rect.h });
+    });
+  }
+});
+
+describe('writeFields — one field, many widgets', () => {
+  it('creates one field with a widget per placement sharing its name', async () => {
+    const { pdfDoc, geometry } = await blankPage(0);
+    pdfDoc.addPage([595, 842]);
+    pdfDoc.addPage([595, 842]);
+    const geometries = [geometry, geometry, geometry];
+
+    const a = named(createPlacement({ page: 0, type: 'text', rect: { x: 10, y: 10, w: 100, h: 20 } }), 'signed');
+    const b = named(createPlacement({ page: 2, type: 'text', rect: { x: 10, y: 10, w: 100, h: 20 } }), 'signed');
+
+    const bytes = await writeTemplate(pdfDoc, [a, b], geometries);
+    const doc = await PDFDocument.load(bytes);
+    const form = doc.getForm();
+
+    expect(form.getFields()).toHaveLength(1);
+    expect(form.getFields()[0].acroField.getWidgets()).toHaveLength(2);
+    expect(doc.getPages()[0].node.Annots()?.size()).toBe(1);
+    expect(doc.getPages()[2].node.Annots()?.size()).toBe(1);
+  });
+
+  it('skips unnamed placements — naming is required but has no UI yet', async () => {
+    const { pdfDoc, geometry } = await blankPage(0);
+    const unnamed = createPlacement({ page: 0, type: 'text', rect: { x: 10, y: 10, w: 100, h: 20 } });
+
+    const bytes = await writeTemplate(pdfDoc, [unnamed], [geometry]);
+    const doc = await PDFDocument.load(bytes);
+
+    expect(doc.getForm().getFields()).toHaveLength(0);
+  });
+});
+
+describe('writeFields — tab order', () => {
+  it('sorts /Annots by descending visual y then ascending visual x, not creation order', async () => {
+    const { pdfDoc, geometry } = await blankPage(0);
+    // Created bottom-to-top, left-to-right — the reverse of correct tab order.
+    const bottomLeft = named(createPlacement({ page: 0, type: 'text', rect: { x: 10, y: 10, w: 50, h: 20 } }), 'c');
+    const bottomRight = named(createPlacement({ page: 0, type: 'text', rect: { x: 200, y: 10, w: 50, h: 20 } }), 'd');
+    const topLeft = named(createPlacement({ page: 0, type: 'text', rect: { x: 10, y: 700, w: 50, h: 20 } }), 'a');
+    const topRight = named(createPlacement({ page: 0, type: 'text', rect: { x: 200, y: 700, w: 50, h: 20 } }), 'b');
+
+    const bytes = await writeTemplate(pdfDoc, [bottomLeft, bottomRight, topLeft, topRight], [geometry]);
+    const doc = await PDFDocument.load(bytes);
+    const annots = doc.getPages()[0].node.Annots();
+    const names = Array.from({ length: annots.size() }, (_, i) => {
+      const widget = doc.context.lookup(annots.get(i));
+      const field = doc.context.lookup(widget.get(PDFName.of('Parent')));
+      return field.get(PDFName.of('T')).decodeText();
+    });
+
+    expect(names).toEqual(['a', 'b', 'c', 'd']);
+  });
+
+  it('sorts in visual space, not user space, on a rotated page', async () => {
+    // /Rotate 90: visual +y runs along user -x (see geometry.js). Two placements stacked in
+    // visual y must end up in visual order even though their user-space y is identical.
+    const { pdfDoc, geometry } = await blankPage(90);
+    const visualTop = named(createPlacement({ page: 0, type: 'text', rect: { x: 10, y: 700, w: 50, h: 20 } }), 'top');
+    const visualBottom = named(
+      createPlacement({ page: 0, type: 'text', rect: { x: 10, y: 10, w: 50, h: 20 } }),
+      'bottom',
+    );
+
+    // Creation order is deliberately bottom-then-top, the wrong order, so the sort is load-bearing.
+    const bytes = await writeTemplate(pdfDoc, [visualBottom, visualTop], [geometry]);
+    const doc = await PDFDocument.load(bytes);
+    const annots = doc.getPages()[0].node.Annots();
+    const names = Array.from({ length: annots.size() }, (_, i) => {
+      const widget = doc.context.lookup(annots.get(i));
+      const field = doc.context.lookup(widget.get(PDFName.of('Parent')));
+      return field.get(PDFName.of('T')).decodeText();
+    });
+
+    expect(names).toEqual(['top', 'bottom']);
+  });
+});
+
+describe('writeFields — appearances', () => {
+  it('sets NeedAppearances on the AcroForm dict', async () => {
+    const { pdfDoc, geometry } = await blankPage(0);
+    const placement = named(createPlacement({ page: 0, type: 'text', rect: { x: 10, y: 10, w: 100, h: 20 } }), 'x');
+
+    const bytes = await writeTemplate(pdfDoc, [placement], [geometry]);
+    const doc = await PDFDocument.load(bytes);
+
+    const needAppearances = doc.catalog
+      .lookup(PDFName.of('AcroForm'))
+      .get(PDFName.of('NeedAppearances'));
+    expect(needAppearances).toBe(PDFBool.True);
+  });
+});
+
+describe('writeLayered vs writeTemplate', () => {
+  it('writeLayered sets the field value; writeTemplate leaves it empty', async () => {
+    const { pdfDoc: doc1, geometry } = await blankPage(0);
+    const placement = named(createPlacement({ page: 0, type: 'text', rect: { x: 10, y: 10, w: 100, h: 20 } }), 'x');
+    const filled = updatePlacement([placement], placement.id, { value: 'Hello' })[0];
+
+    const layeredBytes = await writeLayered(doc1, [filled], [geometry]);
+    const layered = await PDFDocument.load(layeredBytes);
+    expect(layered.getForm().getTextField('x').getText()).toBe('Hello');
+
+    const { pdfDoc: doc2 } = await blankPage(0);
+    const templateBytes = await writeTemplate(doc2, [filled], [geometry]);
+    const template = await PDFDocument.load(templateBytes);
+    expect(template.getForm().getTextField('x').getText()).toBeUndefined();
+  });
+});

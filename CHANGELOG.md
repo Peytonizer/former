@@ -45,3 +45,13 @@ headings are cut when a meaningful chunk of work lands, not on every commit.
   Verified against SPEC.md's worked example (anchor and rotation) with a mocked `drawText`, and
   against the exported bytes themselves in a Node probe: real `Tj` text-showing operators on
   every page, at the right size, with each page's text matrix reflecting its own rotation.
+- Build stage 8: `writeFields.js` — writers 2 and 3, layered and template, sharing one internal
+  writer since creating fields and optionally setting their values is the same operation either
+  way (SPEC.md, "The round-trip question — answered"). Text placements only, ticks/dropdowns/
+  radio arrive with the properties panel at stage 10. Two "Export" buttons added alongside
+  filled's. Verified against SPEC.md's widget-rectangle table at all four rotations, the
+  one-field-many-widgets construction, and a tab-order sort proven in **visual** space (a test
+  fixture deliberately creates widgets in the wrong order on a rotated page, where sorting in
+  user space would still look right and be wrong). NeedAppearances and every widget's `/DA` and
+  `/AP` appearance stream checked structurally in a Node probe, since this sandbox has no
+  screen-recording permission for the macOS Preview open the build order calls for.
