@@ -5,8 +5,9 @@ import { fileURLToPath } from 'node:url';
 import { PDFDocument } from 'pdf-lib';
 import { describe, expect, it, vi } from 'vitest';
 
+import { importExistingFields } from '../src/acroform.js';
 import { AUTO_FIT_MAX_PT, AUTO_FIT_MIN_PT, autoFitFontSize, embedSubsetFont } from '../src/fonts.js';
-import { createPlacement } from '../src/placements.js';
+import { createPlacement, updatePlacement } from '../src/placements.js';
 import { writeFilled } from '../src/writeFilled.js';
 
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
@@ -254,5 +255,50 @@ describe('writeFilled — signatures (build stage 12)', () => {
     await writeFilled(pdfDoc, [placement], geometriesOf(pdfDoc), new Map([['sig-jpg', fixture('sig.jpg')]]));
 
     expect(spy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('writeFilled — imported fields (build stage 13)', () => {
+  it('sets an imported placement\'s value on the real field and flattens, drawing nothing for it', async () => {
+    const pdfDoc = await PDFDocument.load(fixture('has-fields.pdf'));
+    const { placements } = importExistingFields(pdfDoc, geometriesOf(pdfDoc));
+    const named = updatePlacement(placements, placements.find((p) => p.name === 'name').id, { value: 'Jane' });
+
+    const drawTextSpy = vi.spyOn(pdfDoc.getPages()[0], 'drawText');
+    const bytes = await writeFilled(pdfDoc, named, geometriesOf(pdfDoc));
+
+    expect(drawTextSpy).not.toHaveBeenCalled(); // the imported placement is never hand-drawn
+
+    const reloaded = await PDFDocument.load(bytes);
+    expect(reloaded.getForm().getFields()).toHaveLength(0); // flatten() removes the fields
+  });
+
+  it('draws a hand-drawn placement normally alongside an imported one in the same export', async () => {
+    const pdfDoc = await PDFDocument.load(fixture('has-fields.pdf'));
+    const { placements } = importExistingFields(pdfDoc, geometriesOf(pdfDoc));
+
+    const handDrawn = createPlacement({ page: 0, type: 'text', rect: { x: 10, y: 10, w: 100, h: 20 } });
+    handDrawn.value = 'Extra note';
+    handDrawn.fontSize = 12;
+
+    const drawTextSpy = vi.spyOn(pdfDoc.getPages()[0], 'drawText');
+    await writeFilled(pdfDoc, [...placements, handDrawn], geometriesOf(pdfDoc));
+
+    // Exactly one call: the hand-drawn placement, not any of the four imported ones.
+    expect(drawTextSpy).toHaveBeenCalledTimes(1);
+    expect(drawTextSpy.mock.calls[0][0]).toBe('Extra note');
+  });
+
+  it('never flattens when nothing is marked fromExistingField, even if the document has fields', async () => {
+    const pdfDoc = await PDFDocument.load(fixture('has-fields.pdf'));
+    const handDrawn = createPlacement({ page: 0, type: 'text', rect: { x: 10, y: 10, w: 100, h: 20 } });
+    handDrawn.value = 'Just a drawn note';
+
+    const bytes = await writeFilled(pdfDoc, [handDrawn], geometriesOf(pdfDoc));
+    const reloaded = await PDFDocument.load(bytes);
+
+    // The document's own original fields survive untouched — SPEC.md, "a document with fields
+    // the user chooses not to import is left alone".
+    expect(reloaded.getForm().getFields()).toHaveLength(4);
   });
 });

@@ -68,6 +68,11 @@
             <input type="file" accept="application/pdf,.pdf" data-input />
           </label>
           <p class="messages" data-messages role="status" aria-live="polite"></p>
+          <div class="import-prompt" data-import-prompt hidden role="status">
+            <p data-import-prompt-text></p>
+            <button type="button" data-import-fields>Import them</button>
+            <button type="button" data-skip-import>Skip — start blank</button>
+          </div>
         </section>
 
         <section class="viewer" data-viewer hidden>

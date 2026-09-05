@@ -37,13 +37,23 @@
  * signature was saved is exactly the kind of assumption that breaks quietly. A placement with no
  * matching entry (nothing saved yet, or the id is stale) draws nothing, not an error.
  *
+ * A placement marked `fromExistingField` (build stage 13 — `acroform.js` imported it from a real
+ * AcroForm field already in the source document) is never drawn at all: SPEC.md's "Existing
+ * AcroForm fields" makes this the one case `form.flatten()` is the right call, because the field
+ * already exists and was laid out by whoever made the document — setting its value and letting
+ * `flatten()` bake it in is more faithful than a second, independent redrawing of the same spot.
+ * Every hand-drawn placement in the same export is drawn exactly as described above regardless;
+ * the two paths coexist because a document can have both kinds of placement in it.
+ *
  * Every other placement type not mentioned above is skipped here, not an error — the properties
  * panel that would make an unnamed field creatable doesn't fully exist yet either.
  */
 import { degrees, rgb } from 'pdf-lib';
 
+import { applyImportedValue } from './acroform.js';
 import { autoFitFontSize, embedSubsetFont, LINE_HEIGHT_FACTOR, wrapLines } from './fonts.js';
 import { userFromVisual } from './geometry.js';
+import { groupByName } from './placements.js';
 import { sniffImageType } from './signature.js';
 
 function drawText(page, font, geometry, placement, text) {
@@ -108,8 +118,12 @@ async function drawSignature(pdfDoc, page, geometry, rect, bytes) {
 export async function writeFilled(pdfDoc, placements, pageGeometries, signatureImages = new Map()) {
   const font = await embedSubsetFont(pdfDoc);
   const pages = pdfDoc.getPages();
+  const form = pdfDoc.getForm();
 
-  for (const placement of placements) {
+  const imported = placements.filter((p) => p.fromExistingField && p.name);
+  const drawn = placements.filter((p) => !p.fromExistingField);
+
+  for (const placement of drawn) {
     const page = pages[placement.page];
     const geometry = pageGeometries[placement.page];
 
@@ -129,6 +143,14 @@ export async function writeFilled(pdfDoc, placements, pageGeometries, signatureI
       // oxlint-disable-next-line no-await-in-loop
       if (bytes) await drawSignature(pdfDoc, page, geometry, placement.rect, bytes);
     }
+  }
+
+  if (imported.length > 0) {
+    for (const [name, group] of groupByName(imported)) {
+      const field = form.getFieldMaybe(name);
+      if (field) applyImportedValue(field, group);
+    }
+    form.flatten();
   }
 
   return pdfDoc.save();

@@ -27,6 +27,7 @@ describe('createPlacement', () => {
     expect(p.optionValue).toBe('');
     expect(p.imageId).toBeNull();
     expect(p.asTextInTemplate).toBe(false);
+    expect(p.fromExistingField).toBe(false);
     expect(typeof p.id).toBe('string');
     expect(p.id.length).toBeGreaterThan(0);
   });

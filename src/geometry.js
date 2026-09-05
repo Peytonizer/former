@@ -116,3 +116,30 @@ export function visualFromUser(g, ux, uy) {
       throw new Error(`Unsupported rotation: ${g.rotate}`);
   }
 }
+
+/**
+ * Map an axis-aligned **user-space** rectangle — a widget's `/Rect`, as pdf-lib's
+ * `getRectangle()` returns it — to the axis-aligned **visual** rectangle it occupies. A plain
+ * rectangle has no inherent up direction the way text or an image does, so this maps its four
+ * corners through `visualFromUser` and takes their bounding box, rather than picking one anchor
+ * and rotating about it. `acroform.js` uses this to import an existing field's widgets as
+ * placements; it is the opposite direction of the widget rectangle rule in SPEC.md, which goes
+ * from a placement's visual rect to the `/Rect` a new widget is given.
+ *
+ * @param {PageGeometry} g
+ * @param {{x:number, y:number, width:number, height:number}} rect  user-space, pdf-lib's shape
+ * @returns {{x:number, y:number, w:number, h:number}}  visual space, former's own Placement shape
+ */
+export function visualRectFromUserRect(g, rect) {
+  const corners = [
+    visualFromUser(g, rect.x, rect.y),
+    visualFromUser(g, rect.x + rect.width, rect.y),
+    visualFromUser(g, rect.x, rect.y + rect.height),
+    visualFromUser(g, rect.x + rect.width, rect.y + rect.height),
+  ];
+  const xs = corners.map((c) => c.x);
+  const ys = corners.map((c) => c.y);
+  const x = Math.min(...xs);
+  const y = Math.min(...ys);
+  return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { normaliseRotation, userFromVisual, visualFromUser, visualSize } from '../src/geometry.js';
+import { normaliseRotation, userFromVisual, visualFromUser, visualRectFromUserRect, visualSize } from '../src/geometry.js';
 
 /** A4 portrait, box origin at (0,0). */
 const a4 = (rotate = 0) => ({ x0: 0, y0: 0, w: 595, h: 842, rotate });
@@ -141,5 +141,51 @@ describe('SPEC.md worked example — A4 portrait with /Rotate 90', () => {
     expect(visualFromUser(g, corners.bottomRight.x, corners.bottomRight.y)).toEqual({ x: 760, y: 20 });
     expect(visualFromUser(g, corners.topLeft.x, corners.topLeft.y)).toEqual({ x: 700, y: 60 });
     expect(visualFromUser(g, corners.topRight.x, corners.topRight.y)).toEqual({ x: 760, y: 60 });
+  });
+});
+
+// The inverse of writeFields.test.js's widget-rectangle table: given the /Rect the widget
+// rectangle rule produces for a 120x20 visual box at visual (100, 50) on a 595x842 page, mapping
+// it back must recover that same visual rectangle, at every rotation.
+describe('visualRectFromUserRect', () => {
+  const cases = [
+    { rotate: 0, rect: { x: 100, y: 50, width: 120, height: 20 } },
+    { rotate: 90, rect: { x: 525, y: 100, width: 20, height: 120 } },
+    { rotate: 180, rect: { x: 375, y: 772, width: 120, height: 20 } },
+    { rotate: 270, rect: { x: 50, y: 622, width: 20, height: 120 } },
+  ];
+
+  for (const { rotate, rect } of cases) {
+    it(`recovers the 120x20 visual rect at (100, 50) from the /Rotate ${rotate} /Rect`, () => {
+      expect(visualRectFromUserRect(a4(rotate), rect)).toEqual({ x: 100, y: 50, w: 120, h: 20 });
+    });
+  }
+
+  it('round-trips through the widget rectangle rule for an arbitrary rect, cropped or not', () => {
+    for (const make of [a4, cropped]) {
+      for (const rotate of [0, 90, 180, 270]) {
+        const g = make(rotate);
+        const visual = { x: 40, y: 30, w: 90, h: 25 };
+        // The forward direction, by hand: map all four corners through userFromVisual and take
+        // their bounding box — the same treatment visualRectFromUserRect gives the user rect.
+        const corners = [
+          userFromVisual(g, visual.x, visual.y),
+          userFromVisual(g, visual.x + visual.w, visual.y),
+          userFromVisual(g, visual.x, visual.y + visual.h),
+          userFromVisual(g, visual.x + visual.w, visual.y + visual.h),
+        ];
+        const xs = corners.map((c) => c.x);
+        const ys = corners.map((c) => c.y);
+        const x = Math.min(...xs);
+        const y = Math.min(...ys);
+        const userRect = { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y };
+
+        const back = visualRectFromUserRect(g, userRect);
+        expect(back.x).toBeCloseTo(visual.x, 9);
+        expect(back.y).toBeCloseTo(visual.y, 9);
+        expect(back.w).toBeCloseTo(visual.w, 9);
+        expect(back.h).toBeCloseTo(visual.h, 9);
+      }
+    }
   });
 });

@@ -28,6 +28,7 @@
  *   optionValue: string,
  *   imageId: string|null,
  *   asTextInTemplate: boolean,
+ *   fromExistingField: boolean,
  * }} Placement
  */
 
@@ -42,6 +43,11 @@ const PLACEMENT_TYPES = new Set(['text', 'check', 'signature', 'dropdown', 'radi
  * across every placement sharing its name, the same way `name` itself is. Added at build stage
  * 10, once a real multi-widget radio group made the two genuinely different things; see
  * SPEC.md, "The placement model".
+ *
+ * `fromExistingField` is always `false` here — a placement the editor creates was never an
+ * AcroForm field to begin with. Only `acroform.js` ever sets it `true`, once, at import; nothing
+ * changes it afterward, including a later rename, because it answers "where did this come from"
+ * rather than "what is this called right now" (added at build stage 13).
  *
  * @param {{ id?: string, page: number, type: PlacementType, rect: Placement['rect'] }} args
  * @returns {Placement}
@@ -62,6 +68,7 @@ export function createPlacement({ id, page, type, rect }) {
     optionValue: '',
     imageId: null,
     asTextInTemplate: false,
+    fromExistingField: false,
   };
 }
 

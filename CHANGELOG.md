@@ -96,3 +96,17 @@ headings are cut when a meaningful chunk of work lands, not on every commit.
   their name. Verified end-to-end in a browser: drawing, saving, uploading (including the
   JPEG-has-no-transparency warning and the not-a-PNG-or-JPEG refusal), clearing, and picking a
   saved signature for a placement through the properties panel, through to a clean filled export.
+- Build stage 13: acroform.js — detect a document's existing AcroForm fields and offer to import
+  them rather than silently drawing over a form that already works. Each widget imports as one
+  placement, sharing its field's name and read via `geometry.js`'s new `visualRectFromUserRect`
+  (the inverse of the widget rectangle rule, promoted out of the fixture generator now that a
+  real production consumer needs it too). Button and option-list fields are reported as
+  unsupported and left untouched, not imported. `writeFilled.js` gives an imported placement
+  (marked `fromExistingField`) a genuinely different path from a hand-drawn one: it sets the real
+  field's value and calls `form.flatten()` once for the whole document, rather than drawing fresh
+  text at the computed anchor — the two paths coexist correctly in one export. Flagged and
+  resolved a second real model gap before writing this stage's code: nothing in the original
+  Placement shape said "this came from a real field", which set-and-flatten vs. draw needs to
+  know and a rename must not silently change. Verified end-to-end in a browser: the prompt
+  correctly counts a document's fields, both import and skip leave the right placements behind,
+  and an imported document exports cleanly through the flatten path.

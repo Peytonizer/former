@@ -3,6 +3,7 @@
 // document state (`placements`, below); every other piece of state here is transient UI state.
 import { PDFDocument } from 'pdf-lib';
 
+import { hasExistingFields, importExistingFields } from './acroform.js';
 import { createEditorCanvas } from './editor/canvas.js';
 import { createPropertiesPanel } from './editor/properties.js';
 import { visualSize } from './geometry.js';
@@ -60,6 +61,10 @@ const els = {
   signatureSaveDrawn: document.querySelector('[data-signature-save-drawn]'),
   signatureUpload: document.querySelector('[data-signature-upload]'),
   signatureMessage: document.querySelector('[data-signature-message]'),
+  importPrompt: document.querySelector('[data-import-prompt]'),
+  importPromptText: document.querySelector('[data-import-prompt-text]'),
+  importFields: document.querySelector('[data-import-fields]'),
+  skipImport: document.querySelector('[data-skip-import]'),
 };
 
 if (els.build) els.build.textContent = import.meta.env.VITE_COMMIT_SHA;
@@ -85,6 +90,8 @@ let placements = [];
 let thumbnailButtons = [];
 let pageIndex = 0;
 let zoomIndex = DEFAULT_ZOOM_INDEX;
+/** The pdf-lib document doc.js already parsed, held only while the import prompt is showing. */
+let pendingImportDoc = null;
 
 // Shared by both the canvas and the properties panel, so a change made in either place is
 // reflected in the other: the panel can rename or re-value a placement whose label the canvas
@@ -152,6 +159,19 @@ async function openFile(file) {
   els.exportLayered.disabled = false;
   els.exportTemplate.disabled = false;
 
+  // Detected via the same pdf-lib document doc.js already loaded to read page geometry — a
+  // separate parse isn't needed just to ask getForm().getFields(). SPEC.md, "Existing AcroForm
+  // fields": offer to import rather than silently drawing over a form that already works.
+  if (hasExistingFields(result.pdfDoc)) {
+    pendingImportDoc = result.pdfDoc;
+    const count = result.pdfDoc.getForm().getFields().length;
+    els.importPromptText.textContent = `This PDF already has ${count} form field${count === 1 ? '' : 's'}. Import them as placements you can edit, or start blank and leave them alone.`;
+    els.importPrompt.hidden = false;
+  } else {
+    pendingImportDoc = null;
+    els.importPrompt.hidden = true;
+  }
+
   thumbnailButtons = await buildThumbnailRail(current.pdfJsDoc, els.thumbnails, {
     onSelect: (index) => showPage(index),
   });
@@ -199,6 +219,24 @@ for (const button of els.tools) {
 
 els.duplicate.addEventListener('click', () => editor.duplicateSelected());
 els.deletePlacement.addEventListener('click', () => editor.deleteSelected());
+
+els.importFields.addEventListener('click', () => {
+  if (!pendingImportDoc) return;
+  const { placements: imported, unsupported } = importExistingFields(pendingImportDoc, pageGeometries);
+  handlePlacementsChange([...placements, ...imported]);
+  els.importPrompt.hidden = true;
+  pendingImportDoc = null;
+  if (unsupported.length > 0) {
+    setMessage(
+      `Imported ${imported.length} field widget(s). ${unsupported.length} button/option-list field(s) — ${unsupported.join(', ')} — aren't supported and are left untouched.`,
+    );
+  }
+});
+
+els.skipImport.addEventListener('click', () => {
+  els.importPrompt.hidden = true;
+  pendingImportDoc = null;
+});
 
 /** filename.pdf -> filename-filled.pdf, for a download name that says what it is. */
 function derivedFileName(originalName, suffix) {
