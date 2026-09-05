@@ -274,7 +274,11 @@ describe('writeFilled — signatures (build stage 12)', () => {
     const raw = fixture('sig.jpg');
     const padded = Buffer.concat([Buffer.alloc(16), raw]);
     const view = padded.subarray(16);
-    expect(view.byteOffset).toBe(16);
+    // Not asserting a specific byteOffset value: Buffer.concat's own result can itself be a pool
+    // slice with a non-zero base, so the absolute offset after .subarray(16) depends on that base
+    // too, not just the 16 padding bytes. The only thing this test actually needs is a non-zero
+    // offset — a real Buffer view that does not start at byte 0 of its own underlying buffer.
+    expect(view.byteOffset).not.toBe(0);
     expect(Buffer.isBuffer(view)).toBe(true);
 
     const pdfDoc = await PDFDocument.load(fixture('flat-a4.pdf'));

@@ -202,4 +202,9 @@ headings are cut when a meaningful chunk of work lands, not on every commit.
   Buffer-specific override it was meant to guard against. Corrected to `new Uint8Array(bytes)`,
   and the test rebuilt with `Buffer.concat`/`.subarray()` so it actually is a `Buffer` view — the
   same shape `fs.readFileSync` produced in CI — confirmed to fail against the first, broken fix
-  and pass against the corrected one.
+  and pass against the corrected one. One more round-trip through CI found a second, smaller
+  slip in that same test: it asserted the constructed view's `byteOffset` was exactly `16`, which
+  assumed `Buffer.concat` itself always returns a buffer that owns its own memory from byte 0 —
+  true locally, not true on the CI runner, where `Buffer.concat`'s own result was itself a pool
+  slice with a non-zero base. Loosened to asserting only what the test actually needs: a non-zero
+  offset, not a specific one.
