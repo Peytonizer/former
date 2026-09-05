@@ -234,3 +234,7 @@ headings are cut when a meaningful chunk of work lands, not on every commit.
   row for picking a placement type (Text/Tick/Signature/Dropdown/Radio) now sits directly above
   the page canvas, with the export/preview controls moved below it, so the tool you're choosing
   and the page you're dragging on are no longer separated by several rows of buttons.
+- Matched lodger's own theme more closely, now that the palette is shared through `strata-kit`:
+  the confectionery gradient wash behind the masthead, the expressive `Fraunces Variable` wordmark
+  treatment (`SOFT`/`WONK` axes, a `clamp()`-sized display weight), and the privacy line as a
+  pistachio status pill rather than plain text. All copied straight from lodger's `style.css`.

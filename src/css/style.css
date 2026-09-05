@@ -30,7 +30,9 @@
 }
 
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
@@ -50,16 +52,38 @@ body {
   color: var(--ink);
   font-family: var(--font-body);
   font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The confectionery wash at the top of the page, copied from lodger's own `body::before` — see
+ * CLAUDE.md, "Relationship to lodger". Without it the ground reads as flat; this is what makes
+ * the two apps feel like siblings rather than just sharing a colour variable. Fixed rather than
+ * absolute, so it doesn't grow with page content, and behind `.shell` (below) via z-index. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0 0 auto;
+  height: 420px;
+  background:
+    radial-gradient(60% 100% at 12% 0%, color-mix(in srgb, var(--rose) 46%, transparent), transparent 70%),
+    radial-gradient(52% 100% at 88% 0%, color-mix(in srgb, var(--bleuet) 42%, transparent), transparent 70%),
+    radial-gradient(40% 80% at 50% 0%, color-mix(in srgb, var(--lemon) 34%, transparent), transparent 75%);
+  pointer-events: none;
+  z-index: 0;
 }
 
 .shell {
   /* 1180px, matching lodger's own `.shell` exactly (see CLAUDE.md, "Relationship to lodger") —
    * wide enough that the viewer grid below (thumbnails, the page itself, properties) gets a real
    * working width once a PDF is open. The masthead, signature panel and file picker stay
-   * readable-width by re-narrowing themselves (see `.narrow` below). */
+   * readable-width by re-narrowing themselves (see `.narrow` below). `position`/`z-index` lift it
+   * above the gradient wash. */
+  position: relative;
+  z-index: 1;
   max-width: 1180px;
   margin: 0 auto;
-  padding: 2.5rem 1.5rem 3rem;
+  padding: 2.5rem 1.5rem 6rem;
 }
 
 /* Left-aligned, not centred: the shell is wide enough for the viewer's full grid, and centring
@@ -71,7 +95,7 @@ body {
 
 .masthead {
   position: relative;
-  margin-bottom: 2rem;
+  margin-bottom: 36px;
   padding-right: 120px;
 }
 
@@ -104,35 +128,47 @@ body {
   outline-offset: 2px;
 }
 
+/* Expressive display treatment copied from lodger's own `.wordmark` — the variable-font axes
+ * are Fraunces Variable's, not a generic bold/italic. */
 .wordmark {
-  margin: 0 0 0.5rem;
+  margin: 0;
   font-family: var(--font-display);
   font-optical-sizing: auto;
-  font-size: 2.25rem;
+  font-variation-settings: 'SOFT' 40, 'WONK' 1;
+  font-weight: 600;
+  font-size: clamp(2.6rem, 6vw, 3.6rem);
+  letter-spacing: -0.02em;
+  line-height: 1;
 }
 
 .wordmark .dot {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .tagline {
-  margin: 0 0 1rem;
+  margin: 10px 0 0;
+  max-width: 54ch;
   color: var(--ink-soft);
-  max-width: 38rem;
+  font-size: 1.05rem;
 }
 
+/* A pill, not plain text — copied from lodger's own `.privacy-line`, which reads as a status
+ * badge rather than a caption. */
 .privacy-line {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  margin: 0;
-  color: var(--ink-soft);
-  font-size: 0.9rem;
+  gap: 8px;
+  margin-top: 18px;
+  padding: 7px 14px 7px 11px;
+  border-radius: 999px;
+  background: var(--pistachio);
+  color: var(--ink);
+  font-size: 0.83rem;
+  font-weight: 500;
 }
 
 .privacy-line svg {
   flex: none;
-  color: var(--accent);
 }
 
 .loader {
